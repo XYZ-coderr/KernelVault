@@ -1,0 +1,81 @@
+@startuml state_diagram
+skinparam monochrome false
+skinparam roundcorner 8
+skinparam shadowing true
+skinparam defaultFontName "Courier"
+
+[*] --> UNINITIALIZED : Vault Path Specified
+
+state UNINITIALIZED {
+    UNINITIALIZED : Directory not initialized or missing vault.meta
+    UNINITIALIZED --> INITIALIZED : kvault init --vault <path>
+}
+
+state INITIALIZED {
+    INITIALIZED : Metadata verified, permissions 0700
+}
+
+INITIALIZED --> AUTHENTICATING : encrypt / decrypt requested
+
+state AUTHENTICATING {
+    AUTHENTICATING : Master passphrase entered by user
+    AUTHENTICATING : Read salt from vault metadata
+    AUTHENTICATING : Compute PBKDF2-HMAC-SHA256 (100,000 rounds)
+    AUTHENTICATING : Wipe raw passphrase buffer via explicit_bzero()
+}
+
+AUTHENTICATING --> EXCLUSIVE_IO_LOCK : Key Derived Successfully
+AUTHENTICATING --> CLEANUP_PURGE : Auth Failure / Invalid Format
+
+state EXCLUSIVE_IO_LOCK {
+    EXCLUSIVE_IO_LOCK : Open <vault>/<file>.lock
+    EXCLUSIVE_IO_LOCK : Acquire fcntl(F_SETLK, F_WRLCK / F_RDLCK)
+    EXCLUSIVE_IO_LOCK : Open /dev/kvault (atomic_cmpxchg)
+    EXCLUSIVE_IO_LOCK : Issue KVAULT_IOCTL_SET_KEY
+    EXCLUSIVE_IO_LOCK : Wipe user-space key copy via explicit_bzero()
+}
+
+EXCLUSIVE_IO_LOCK --> STREAMING_CIPHER : Driver Ready & File Locked
+EXCLUSIVE_IO_LOCK --> CLEANUP_PURGE : Lock Contention (-EBUSY) or Device Missing
+
+state STREAMING_CIPHER {
+    state "Encrypt Pipeline" as ENC {
+        ENC : Open .tmp.<pid>.<uuid> (0600)
+        ENC : Write Vault Header & IV
+        ENC : Loop 64 KiB chunks -> kernel skcipher
+        ENC : Pipe ciphertext to temp file
+        ENC : Update running HMAC-SHA256
+    }
+
+    state "Decrypt Pipeline" as DEC {
+        DEC : Open encrypted vault entry
+        DEC : Read and verify Vault Header & HMAC
+        DEC : Loop 64 KiB chunks -> kernel skcipher
+        DEC : Pipe plaintext to AtomicFileWriter
+    }
+
+    state "Atomic Commit" as COMMIT {
+        COMMIT : fsync(tmp_fd) flush dirty cache
+        COMMIT : renameat2(tmp, final, RENAME_NOREPLACE)
+    }
+
+    ENC --> COMMIT : All chunks transformed
+    DEC --> COMMIT : Verification & transformation complete
+}
+
+STREAMING_CIPHER --> CLEANUP_PURGE : Signal (SIGINT/SIGTERM) or IO Error
+STREAMING_CIPHER --> CLEANUP_PURGE : Commit Completed Successfully
+
+state CLEANUP_PURGE {
+    CLEANUP_PURGE : Issue KVAULT_IOCTL_FLUSH_KEY to kernel
+    CLEANUP_PURGE : Kernel calls memzero_explicit()
+    CLEANUP_PURGE : Close /dev/kvault (release atomic_t)
+    CLEANUP_PURGE : Release fcntl lock & close lock file
+    CLEANUP_PURGE : Remove orphan .tmp files if aborted
+    CLEANUP_PURGE : Purge stack buffers
+}
+
+CLEANUP_PURGE --> INITIALIZED : Operation Completed Cleanly
+CLEANUP_PURGE --> [*] : Process Exit
+
+@enduml

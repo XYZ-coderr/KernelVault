@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KernelVault (kvault) — Systems Architecture, IOCTL Telemetry & Engineering Manual</title>
+  <meta name="description" content="Technical telemetry dashboard, interactive IOCTL testbed, 96-byte binary frame dissector, and complete systems engineering reference for the Linux kernel-assisted secure storage architecture (kvault).">
+  
+  <!-- System Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-dark">
+
+  <!-- Enterprise Header Bar -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="brand-mark">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M12 8v4"/>
+          <path d="M12 16h.01"/>
+        </svg>
+      </div>
+      <div class="brand-info">
+        <div class="brand-title-row">
+          <span class="brand-name">KernelVault</span>
+          <span class="sys-badge">kvault 1.0.0</span>
+          <span class="sys-badge target-arch">x86_64-linux-gnu</span>
+        </div>
+        <div class="brand-sub">Linux Kernel-Assisted Cryptographic Storage Engine</div>
+      </div>
+    </div>
+
+    <!-- Live Kernel Device Telemetry -->
+    <div class="header-telemetry">
+      <div class="telemetry-item" title="Kernel Character Device Node Status">
+        <span class="telem-label">DEV NODE</span>
+        <span class="telem-value status-online">
+          <span class="status-indicator"></span> /dev/kvault (243:0)
+        </span>
+      </div>
+      <div class="telemetry-item" title="Kernel Device Concurrency Lock (atomic_cmpxchg)">
+        <span class="telem-label">ATOMIC GATE</span>
+        <span class="telem-value" id="telem-gate-val">UNLOCKED (0)</span>
+      </div>
+      <div class="telemetry-item" title="Cipher Subsystem in Kernel Space">
+        <span class="telem-label">KERNEL CIPHER</span>
+        <span class="telem-value">cbc(aes) 256-bit</span>
+      </div>
+      <div class="telemetry-item" title="POSIX Advisory Lock Mode">
+        <span class="telem-label">CONCURRENCY</span>
+        <span class="telem-value">fcntl(F_WRLCK)</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <a href="https://github.com/torvalds/linux" target="_blank" rel="noopener" class="btn-util" title="Kernel Crypto API Documentation">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>KernelDoc</span>
+      </a>
+      <button id="btn-theme-toggle" class="btn-util" title="Toggle Light/Dark Theme">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="icon-theme"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <nav class="nav-tabs" role="navigation">
+    <a href="index.html" class="nav-tab active">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+      <span>Dashboard</span>
+    </a>
+    <a href="architecture.html" class="nav-tab ">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <span>Architecture</span>
+    </a>
+    <a href="ioctl.html" class="nav-tab ">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      <span>Kernel IOCTL</span>
+    </a>
+    <a href="dissector.html" class="nav-tab ">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      <span>Frame Dissector</span>
+    </a>
+    
+    <a href="vault.html" class="nav-tab ">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      <span>Vault Operations</span>
+    </a>
+<a href="terminal.html" class="nav-tab ">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+      <span>CLI Sandbox</span>
+    </a>
+    <a href="security.html" class="nav-tab ">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span>Threat Model</span>
+    </a>
+    <a href="manual.html" class="nav-tab ">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <span>Manual</span>
+    </a>
+  </nav>
+  <main class="app-body">
+
+<div class="tab-pane active" role="tabpanel">
+
+    <div class="panel-section">
+      <h2 class="section-title" style="font-size: 1.8rem; margin-bottom: 10px;">Welcome to KernelVault</h2>
+      <p class="section-desc" style="font-size: 1rem;">A highly secure, Linux kernel-assisted cryptographic storage engine.</p>
+      
+      <div class="arch-split-grid" style="margin-top: 30px; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="stride-card" style="padding: 24px;">
+          <h3 class="stride-title" style="margin-bottom: 12px;">Why KernelVault?</h3>
+          <p class="stride-prop" style="line-height: 1.6; color: var(--text-secondary);">KernelVault protects your sensitive files by performing all encryption inside a secure, non-swappable kernel enclave. This prevents malware, debuggers, and memory scrapers from ever seeing your master password in regular application memory.</p>
+        </div>
+        <div class="stride-card" style="padding: 24px;">
+          <h3 class="stride-title" style="margin-bottom: 12px;">Crash Safety</h3>
+          <p class="stride-prop" style="line-height: 1.6; color: var(--text-secondary);">Designed for the real world. If the power fails while you are saving a file, KernelVault guarantees your original file will never be corrupted. We use a three-phase atomic commit system to ensure 100% data integrity.</p>
+        </div>
+      </div>
+
+      <h3 class="subsection-title" style="margin-top: 40px; font-size: 1.2rem;">Explore the Engineering Console</h3>
+      <div class="arch-split-grid" style="margin-top: 20px; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+        <a href="architecture.html" class="stride-card" style="text-decoration: none; display: block; transition: border-color 0.2s;">
+          <h3 class="stride-title">System Architecture &rarr;</h3>
+          <p class="prop-value" style="margin-top: 5px; color: var(--text-muted);">Trace the encryption flow step-by-step.</p>
+        </a>
+        
+    <a href="vault.html" class="nav-tab ">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+      <span>Vault Operations</span>
+    </a>
+<a href="terminal.html" class="stride-card" style="text-decoration: none; display: block; transition: border-color 0.2s;">
+          <h3 class="stride-title">CLI Sandbox &rarr;</h3>
+          <p class="prop-value" style="margin-top: 5px; color: var(--text-muted);">Try out commands in the web terminal.</p>
+        </a>
+        <a href="manual.html" class="stride-card" style="text-decoration: none; display: block; transition: border-color 0.2s;">
+          <h3 class="stride-title">Documentation &rarr;</h3>
+          <p class="prop-value" style="margin-top: 5px; color: var(--text-muted);">Read the full technical specification.</p>
+        </a>
+      </div>
+    </div>
+
+</div>
+</main>
+
+  <!-- Technical Footer -->
+  <footer class="app-footer">
+    <div class="footer-left">
+      <span class="footer-stat">Standard: <strong>POSIX.1-2017 / C++20 (ISO/IEC 14882:2020)</strong></span>
+      <span class="footer-stat">Kernel API: <strong>Linux 5.4 &ndash; 6.x / skcipher</strong></span>
+      <span class="footer-stat">License: <strong>Dual MIT &amp; GPL v2</strong></span>
+    </div>
+    <div class="footer-right">
+      <span>KernelVault Systems Engineering Console &middot; Confidential Internal Production System</span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

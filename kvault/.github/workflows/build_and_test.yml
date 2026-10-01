@@ -1,0 +1,77 @@
+name: CI Pipeline - KernelVault (kvault)
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  kernel-driver-build:
+    name: Linux Kernel Module Kbuild Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Install Kernel Headers & Build Prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential linux-headers-$(uname -r) kmod
+
+      - name: Compile kvault Kernel Driver
+        run: |
+          cd driver
+          make all
+          ls -lh kvault.ko
+
+      - name: Verify Module Metadata & Symbols
+        run: |
+          modinfo driver/kvault.ko
+
+  cpp-userspace-build-and-test:
+    name: C++20 Core Build, ASan, and GTest Matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [ { cc: "gcc", cxx: "g++" }, { cc: "clang", cxx: "clang++" } ]
+        build_type: [ "Debug", "Release" ]
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Install User-Space Tooling & Test Framework
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake cppcheck clang-tidy valgrind libgtest-dev
+
+      - name: Configure CMake with ASan & Static Analysis
+        env:
+          CC: ${{ matrix.compiler.cc }}
+          CXX: ${{ matrix.compiler.cxx }}
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DENABLE_ASAN=ON \
+            -DBUILD_TESTING=ON
+
+      - name: Compile kvault Engine and Test Suites
+        run: |
+          cmake --build build -j$(nproc)
+
+      - name: Run CTest / Google Test Suites
+        run: |
+          ctest --test-dir build --output-on-failure --verbose
+
+      - name: Execute Static Analysis (cppcheck)
+        run: |
+          cppcheck --enable=all --suppress=missingIncludeSystem --inconclusive --error-exitcode=1 --std=c++20 -I include src/
+
+      - name: Validate Valgrind Memory Cleanliness (Non-ASan)
+        if: matrix.build_type == 'Release' && matrix.compiler.cc == 'gcc'
+        run: |
+          # Rebuild without ASan for Valgrind inspection
+          cmake -B build-valgrind -DCMAKE_BUILD_TYPE=Release -DENABLE_ASAN=OFF -DBUILD_TESTING=ON
+          cmake --build build-valgrind -j$(nproc)
+          valgrind --leak-check=full --show-leak-kinds=all --error-exitcode=1 ./build-valgrind/tests/kvault_tests
