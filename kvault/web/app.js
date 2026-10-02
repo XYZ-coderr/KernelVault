@@ -122,18 +122,6 @@ function initNavigation() {
     });
   });
 
-  // Theme toggle
-  const themeBtn = $('btn-theme-toggle');
-  if (themeBtn) {
-    themeBtn.addEventListener('click', () => {
-      document.body.classList.toggle('theme-light');
-      const isLight = document.body.classList.contains('theme-light');
-      localStorage.setItem('kvault-theme', isLight ? 'light' : 'dark');
-    });
-    if (localStorage.getItem('kvault-theme') === 'light') {
-      document.body.classList.add('theme-light');
-    }
-  }
 }
 
 /* ==========================================================================
