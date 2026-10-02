@@ -315,6 +315,77 @@ function initArchitectureControls() {
   });
 }
 
+/* Recruiter-facing architecture simulation: plain-language file journey. */
+function clearAllPipelineHighlights() {
+  $$('.simple-flow-step').forEach(step => step.classList.remove('flow-active', 'flow-safe'));
+}
+
+async function showSimpleStep(id, label, message, safety = false) {
+  const step = $(id);
+  if (step) step.classList.add(safety ? 'flow-safe' : 'flow-active');
+  setPipelineStatus(label, safety ? 'stat-warn' : 'stat-active', message);
+  await sleep(800);
+}
+
+async function runEncryptPipelineTrace() {
+  if (isPipelineRunning) return;
+  isPipelineRunning = true;
+  clearAllPipelineHighlights();
+
+  try {
+    await showSimpleStep('simple-step-select', '1 / 3', 'A user chooses a file and unlocks their vault with a passphrase.');
+    await showSimpleStep('simple-step-protect', '2 / 3', 'KernelVault encrypts the file and adds a check that can detect unwanted changes.');
+    await showSimpleStep('simple-step-store', '3 / 3', 'The protected copy is saved only after the complete record is ready.');
+    setPipelineStatus('ENCRYPTED', 'stat-active', 'Done: the original file now has a protected vault copy.');
+  } finally {
+    isPipelineRunning = false;
+  }
+}
+
+async function runDecryptPipelineTrace() {
+  if (isPipelineRunning) return;
+  isPipelineRunning = true;
+  clearAllPipelineHighlights();
+
+  try {
+    await showSimpleStep('simple-step-store', '1 / 3', 'KernelVault finds the protected vault record.');
+    await showSimpleStep('simple-step-protect', '2 / 3', 'Before opening it, KernelVault checks that the record has not been changed or damaged.');
+    await showSimpleStep('simple-step-restore', '3 / 3', 'After the check passes, the original file is restored for the user.');
+    setPipelineStatus('RESTORED', 'stat-active', 'Done: the verified file has been restored.');
+  } finally {
+    isPipelineRunning = false;
+  }
+}
+
+async function runCrashSimulationTrace() {
+  if (isPipelineRunning) return;
+  isPipelineRunning = true;
+  clearAllPipelineHighlights();
+
+  try {
+    await showSimpleStep('simple-step-protect', 'INTERRUPTION', 'Imagine the process stops while KernelVault is preparing the protected copy.', true);
+    await showSimpleStep('simple-step-store', 'SAFETY CHECK', 'The unfinished temporary copy is kept separate from the final vault record.', true);
+    setPipelineStatus('PREVIOUS FILE SAFE', 'stat-active', 'The complete record remains available; KernelVault does not present a half-finished vault file as a valid result.');
+  } finally {
+    isPipelineRunning = false;
+  }
+}
+
+function initArchitectureControls() {
+  const btnEnc = $('btn-flow-encrypt');
+  const btnDec = $('btn-flow-decrypt');
+  const btnCrash = $('btn-flow-crash');
+  const btnReset = $('btn-flow-reset');
+
+  if (btnEnc) btnEnc.addEventListener('click', runEncryptPipelineTrace);
+  if (btnDec) btnDec.addEventListener('click', runDecryptPipelineTrace);
+  if (btnCrash) btnCrash.addEventListener('click', runCrashSimulationTrace);
+  if (btnReset) btnReset.addEventListener('click', () => {
+    clearAllPipelineHighlights();
+    setPipelineStatus('IDLE', '', 'Choose a simulation to follow the file from start to finish.');
+  });
+}
+
 /* ==========================================================================
    5. KERNEL IOCTL TESTBED CONTROLLER
    ========================================================================== */

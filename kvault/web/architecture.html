@@ -110,21 +110,21 @@
       <section class="panel-section ribbon-panel">
         <div class="section-header-compact">
           <div>
-            <h2 class="section-title">Dual-Tier Memory Boundary & System Call Flow</h2>
-            <p class="section-desc">Interactive execution engine tracing user-space memory isolation, kernel transition boundaries, POSIX locking, and crash safety.</p>
+            <h2 class="section-title">How KernelVault Protects a File</h2>
+            <p class="section-desc">A simple view of what happens when a user locks a file, restores it, or the process is interrupted.</p>
           </div>
           <div class="action-btn-group">
             <button class="btn btn-primary" id="btn-flow-encrypt">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              <span>Trace Encrypt Pipeline</span>
+              <span>Simulate encryption</span>
             </button>
             <button class="btn btn-secondary" id="btn-flow-decrypt">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
-              <span>Trace Decrypt Pipeline</span>
+              <span>Simulate decryption</span>
             </button>
             <button class="btn btn-outline-danger" id="btn-flow-crash">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              <span>Simulate Power Loss / SIGKILL</span>
+              <span>See interruption safety</span>
             </button>
             <button class="btn btn-ghost" id="btn-flow-reset">Reset</button>
           </div>
@@ -133,7 +133,61 @@
         <!-- Flow State Feedback Bar -->
         <div class="pipeline-status-banner" id="flow-status-banner">
           <div class="status-indicator-badge" id="flow-badge">IDLE</div>
-          <div class="status-description" id="flow-desc">Ready. Select an execution trace above to inspect real-time boundary transitions and memory isolation guarantees.</div>
+          <div class="status-description" id="flow-desc">Choose a simulation to follow the file from start to finish.</div>
+        </div>
+      </section>
+
+      <section class="recruiter-flow" aria-labelledby="recruiter-flow-title">
+        <div class="recruiter-flow-heading">
+          <span class="flow-eyebrow">THE PRODUCT STORY</span>
+          <h3 id="recruiter-flow-title">One file, one protected journey</h3>
+          <p>KernelVault turns a normal file into a protected vault record, then checks it before restoring it. The same safety steps work in the background for every operation.</p>
+        </div>
+
+        <div class="flow-legend" aria-label="Flow legend">
+          <span><i class="legend-dot encrypt-dot"></i>Encrypt</span>
+          <span><i class="legend-dot decrypt-dot"></i>Decrypt</span>
+          <span><i class="legend-dot safety-dot"></i>Built-in safety check</span>
+        </div>
+
+        <div class="simple-flow-grid" role="list" aria-label="KernelVault file journey">
+          <article class="simple-flow-step" id="simple-step-select" role="listitem">
+            <span class="simple-step-number">1</span>
+            <div class="simple-step-icon" aria-hidden="true">FILE</div>
+            <h4>Choose a file</h4>
+            <p>The user selects a document and provides the vault passphrase.</p>
+            <span class="simple-step-note">Starting point</span>
+          </article>
+          <div class="flow-arrow" aria-hidden="true">→</div>
+          <article class="simple-flow-step" id="simple-step-protect" role="listitem">
+            <span class="simple-step-number">2</span>
+            <div class="simple-step-icon encrypt-icon" aria-hidden="true">LOCK</div>
+            <h4>Protect it</h4>
+            <p>The file is encrypted and given an integrity check so changes can be detected.</p>
+            <span class="simple-step-note">Encryption</span>
+          </article>
+          <div class="flow-arrow" aria-hidden="true">→</div>
+          <article class="simple-flow-step" id="simple-step-store" role="listitem">
+            <span class="simple-step-number">3</span>
+            <div class="simple-step-icon storage-icon" aria-hidden="true">VAULT</div>
+            <h4>Store safely</h4>
+            <p>The protected copy is saved as a complete record, so a failed write does not leave a half-finished file.</p>
+            <span class="simple-step-note">Safe storage</span>
+          </article>
+          <div class="flow-arrow" aria-hidden="true">→</div>
+          <article class="simple-flow-step" id="simple-step-restore" role="listitem">
+            <span class="simple-step-number">4</span>
+            <div class="simple-step-icon decrypt-icon" aria-hidden="true">OPEN</div>
+            <h4>Verify and restore</h4>
+            <p>When needed, KernelVault checks the record first and only then restores the original file.</p>
+            <span class="simple-step-note">Decryption</span>
+          </article>
+        </div>
+
+        <div class="recruiter-benefits">
+          <article><strong>Confidential</strong><span>Encryption keeps stored content unreadable without the passphrase.</span></article>
+          <article><strong>Verified</strong><span>Integrity checks identify altered or corrupted records before recovery.</span></article>
+          <article><strong>Resilient</strong><span>Temporary writes and an atomic final save protect the previous file during interruptions.</span></article>
         </div>
       </section>
 
