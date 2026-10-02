@@ -842,6 +842,26 @@ code {
 }
 .form-select:focus, .form-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 2px var(--accent-light); }
 
+.enc-result-actions {
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+.enc-result-actions[hidden] { display: none; }
+.enc-result-actions h4 { margin: 0 0 6px; color: var(--text-primary); font-size: 0.98rem; }
+.enc-demo-note { margin: 0 0 16px; color: var(--text-muted); font-size: 0.82rem; line-height: 1.5; }
+.enc-result-name-row { display: flex; gap: 10px; align-items: center; }
+.enc-result-name-row .form-input { min-width: 0; }
+.enc-result-name-row .btn { flex-shrink: 0; }
+.enc-download-button { width: 100%; justify-content: center; margin-top: 12px; }
+.enc-result-message { min-height: 1.4em; margin-top: 10px; color: var(--text-secondary); font-size: 0.82rem; }
+
+@media (max-width: 560px) {
+  .enc-result-name-row { flex-direction: column; align-items: stretch; }
+}
+
 /* Table */
 .data-table { width: 100%; border-collapse: collapse; margin: 24px 0; }
 .data-table th {

@@ -968,6 +968,17 @@ function initVaultOperations() {
   const encFileInput = $('enc-file-input');
   const encFileName = $('enc-file-name');
   const btnEncrypt = $('btn-encrypt-action');
+  const resultActions = $('enc-result-actions');
+  const outputNameInput = $('enc-output-name');
+  const resultMessage = $('enc-result-message');
+  let demoRecordBlob = null;
+
+  const getOutputFilename = () => {
+    const rawName = (outputNameInput?.value || '').trim();
+    const safeName = rawName.replace(/[\\/:*?"<>|]/g, '-');
+    if (!safeName) return '';
+    return safeName.toLowerCase().endsWith('.kvlt') ? safeName : `${safeName}.kvlt`;
+  };
   
   if (encDropZone && encFileInput) {
     // Click to select
@@ -1031,68 +1042,99 @@ function initVaultOperations() {
       const bar = $('enc-progress-bar');
       const status = $('enc-status');
       
-      status.textContent = 'Deriving Key (PBKDF2-HMAC-SHA256)...';
+      status.textContent = 'Simulating key derivation...';
       status.style.color = 'var(--text-secondary)';
       bar.style.width = '10%'; pct.textContent = '10%';
       await sleep(800);
       
-      status.textContent = 'Acquiring Kernel Lock /dev/kvault...';
+      status.textContent = 'Simulating secure session setup...';
       bar.style.width = '30%'; pct.textContent = '30%';
       await sleep(500);
       
-      status.textContent = 'Encrypting chunks in kernel (AES-256-CBC)...';
+      status.textContent = 'Simulating file encryption...';
       for(let i = 30; i <= 90; i+=10) {
         bar.style.width = i + '%'; pct.textContent = i + '%';
         await sleep(200);
       }
       
-      status.textContent = 'Atomic Commit & Writeback (fsync)...';
+      status.textContent = 'Preparing the demo result...';
       bar.style.width = '100%'; pct.textContent = '100%';
       await sleep(600);
       
-      status.textContent = 'Successfully encrypted to vault!';
+      status.textContent = 'Encryption simulation complete. Choose how to handle the demo result below.';
       status.style.color = 'var(--status-ok)';
-      
-      // Save it to the vault (simulate by adding to the select dropdown)
+
+      // Prepare a clearly labeled placeholder artifact for the browser demo.
       const originalName = encFileName.dataset.filename || 'document.txt';
       const originalSize = encFileName.dataset.filesize || 1024;
-      const vaultName = originalName + '.kvlt';
-      
-      // Update decrypt dropdown
-      const selectBox = $('dec-file-select');
-      if (selectBox) {
-        const option = document.createElement('option');
-        option.value = vaultName;
-        // add 96 bytes for header + 16 for padding roughly
-        const encSize = parseInt(originalSize) + 112; 
-        option.text = `${vaultName} (${formatBytes(encSize)}) [NEW]`;
-        option.selected = true;
-        selectBox.appendChild(option);
+
+      outputNameInput.value = `${originalName}.kvlt`;
+      demoRecordBlob = new Blob([
+        'KernelVault browser demo record\n',
+        `Source filename: ${originalName}\n`,
+        `Source size: ${originalSize} bytes\n`,
+        'This placeholder is not encrypted file data. The web page simulates the encryption workflow only.\n'
+      ], { type: 'text/plain' });
+      resultActions.hidden = false;
+      resultMessage.textContent = 'Choose a name, then save the demo record to the list or download it.';
+      $('enc-password').value = '';
+    });
+  }
+
+  const btnSaveRecord = $('btn-save-vault-record');
+  if (btnSaveRecord) {
+    btnSaveRecord.addEventListener('click', () => {
+      const filename = getOutputFilename();
+      if (!filename) {
+        resultMessage.textContent = 'Enter a filename before saving.';
+        outputNameInput.focus();
+        return;
       }
 
-      // Simulate download (optional nice touch for UI proof)
-      const blob = new Blob(["Simulated encrypted data..."], {type: "application/octet-stream"});
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = vaultName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      const selectBox = $('dec-file-select');
+      if (selectBox) {
+        let option = Array.from(selectBox.options).find(item => item.value === filename);
+        if (!option) {
+          option = document.createElement('option');
+          option.value = filename;
+          selectBox.appendChild(option);
+        }
+        option.text = `${filename} (demo record) [NEW]`;
+        option.selected = true;
+      }
+
+      resultMessage.textContent = `Saved ${filename} to the demo vault list for this page session.`;
+    });
+  }
+
+  const btnDownloadRecord = $('btn-download-record');
+  if (btnDownloadRecord) {
+    btnDownloadRecord.addEventListener('click', () => {
+      const filename = getOutputFilename();
+      if (!filename) {
+        resultMessage.textContent = 'Enter a filename before downloading.';
+        outputNameInput.focus();
+        return;
+      }
+      if (!demoRecordBlob) {
+        resultMessage.textContent = 'Encrypt a file first to prepare a demo record.';
+        return;
+      }
+
+      if (!window.confirm(`Download the demo file "${filename}" to your device?`)) {
+        resultMessage.textContent = 'Download canceled. Nothing was saved to your device.';
+        return;
+      }
+
+      const url = window.URL.createObjectURL(demoRecordBlob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
       window.URL.revokeObjectURL(url);
-      
-      // Reset form
-      setTimeout(() => {
-        $('enc-password').value = '';
-        if (encFileInput) encFileInput.value = '';
-        encFileName.style.display = 'none';
-        encDropZone.style.borderColor = 'var(--border-default)';
-        encDropZone.style.background = 'var(--bg-surface)';
-        setTimeout(() => {
-           $('enc-progress-container').style.display = 'none';
-           bar.style.width = '0%';
-        }, 3000);
-      }, 1000);
+      resultMessage.textContent = `Download started for ${filename}.`;
     });
   }
   
