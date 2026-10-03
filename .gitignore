@@ -1,5 +1,6 @@
 # CMake and compiler output
 /build/
+/build-*/
 /cmake-build-*/
 CMakeCache.txt
 CMakeFiles/
