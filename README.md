@@ -1,6 +1,6 @@
 # KernelVault
 
-KernelVault is a Linux capstone project that demonstrates a C++20 file-vault application working with a Linux character-device driver written in C. The command-line application manages vault records; the driver exposes an IOCTL interface to the Linux Kernel Crypto API for AES-256-CBC transformations.
+KernelVault is a Linux capstone project that demonstrates a C++20 file-vault application working with a Linux character-device driver written in C. Users can operate the shared vault engine through the command-line interface or an optional native Qt desktop interface. The driver exposes an IOCTL interface to the Linux Kernel Crypto API for AES-256-CBC transformations.
 
 > **Project status:** educational prototype for review and evaluation. It has not received an independent security audit and is not intended to protect production or high-value data.
 
@@ -8,19 +8,20 @@ KernelVault is a Linux capstone project that demonstrates a C++20 file-vault app
 
 | Requirement | Implementation in this repository |
 | --- | --- |
-| C/C++ implementation | C++20 user-space application in `src/` and `include/`; C Linux driver in `driver/`. |
+| C/C++ implementation | C++20 vault engine, CLI, and optional Qt GUI in `src/` and `include/`; C Linux driver in `driver/`. |
 | Linux operating system | CMake rejects non-Linux builds. The driver uses Linux character-device, IOCTL, and Kernel Crypto API interfaces. |
 | Device-driver concepts | Dynamic character-device registration, exclusive open gate, mutex-protected state, `copy_from_user` / `copy_to_user`, IOCTL controls, and key cleanup. |
-| Software architecture | CLI, vault orchestration, key derivation, advisory locking, atomic file writer, and kernel-driver boundary are documented in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). |
+| Software architecture | CLI and GUI share vault orchestration, key derivation, advisory locking, atomic file writer, and kernel-driver boundary documented in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). |
 | GitHub source and instructions | C/C++ source, build configuration, tests, license, and run instructions are maintained in this repository. |
 
-The prototype is operated from a Linux terminal. Its implementation is C and C++; CMake, Make/Kbuild, GitHub Actions, and Markdown are build, CI, and documentation artifacts.
+The prototype can be operated from a Linux terminal or a native Linux desktop window. Its implementation is C and C++; the optional GUI uses Qt Widgets. There is no browser-based application. CMake, Make/Kbuild, GitHub Actions, and Markdown are build, CI, and documentation artifacts.
 
 ## How it works
 
 ```mermaid
 flowchart LR
     CLI["C++ CLI"] --> VM["VaultManager"]
+    GUI["Optional C++ / Qt GUI"] --> VM
     VM --> KDF["PBKDF2-HMAC-SHA256"]
     VM --> LOCK["POSIX fcntl locks"]
     VM --> OUT["Atomic file writer"]
@@ -33,15 +34,16 @@ flowchart LR
     OUT --> REC
 ```
 
-The driver performs cipher transformations. The C++ application derives keys and authenticates vault records with HMAC-SHA256. The driver is optional for CLI use: if it is absent or inaccessible, the user-space software cipher fallback is used. The fallback and driver implement the same record-level encryption workflow; records are authenticated before plaintext output is committed.
+The driver performs cipher transformations. The C++ application derives keys and authenticates vault records with HMAC-SHA256. The driver is optional: if it is absent or inaccessible, the user-space software cipher fallback is used. The fallback and driver implement the same record-level encryption workflow; records are authenticated before plaintext output is committed. Both the CLI and GUI call the same `VaultManager` implementation.
 
 ## Requirements
 
-- Linux (supported project target); Windows users can use Ubuntu on WSL2 for the CLI
+- Linux (supported project target); Windows users can use Ubuntu on WSL2 for the CLI and WSLg for the GUI
 - CMake 3.20 or newer
 - GCC 11+ or Clang 14+ with C++20 support
 - GNU Make
 - GoogleTest to build and run the test suite
+- Qt 6.2 or newer (`qt6-base-dev`) to build the optional desktop GUI
 - Matching Linux kernel headers only when building the optional driver module
 
 ## Quick start (Linux or Ubuntu on WSL2)
@@ -56,18 +58,19 @@ Complete Ubuntu's first-run account setup. Then run the following commands in th
 
 ```bash
 sudo apt update
-sudo apt install -y git build-essential cmake libgtest-dev
+sudo apt install -y git build-essential cmake libgtest-dev qt6-base-dev
 git clone https://github.com/XYZ-coderr/KernelVault.git
 cd KernelVault
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DBUILD_GUI=ON
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ./build/kvault --help
+./build/kvault-gui
 ```
 
-The command-line prototype is ready at `build/kvault`. The test suite uses the system GoogleTest installed by `libgtest-dev`; if CMake cannot find it, CMake's FetchContent fallback requires network access.
+The CLI is `build/kvault`; the desktop app is `build/kvault-gui`. The GUI uses Qt Widgets and shares the same C++ vault engine as the CLI. To build only the CLI and avoid the Qt dependency, omit `qt6-base-dev` and use `-DBUILD_GUI=OFF`. The test suite uses the system GoogleTest installed by `libgtest-dev`; if CMake cannot find it, CMake's FetchContent fallback requires network access.
 
-WSL supports building and running the CLI, which falls back to its user-space cipher when `/dev/kvault` is unavailable. Loading and demonstrating the kernel module requires a suitable Linux kernel; use a disposable Ubuntu VM or Linux machine for that part. WSL may not provide matching module headers or permit loading this out-of-tree driver.
+WSL supports building and running the CLI and, with WSLg, the Qt desktop app. Both use the user-space cipher when `/dev/kvault` is unavailable. Loading and demonstrating the kernel module requires a suitable Linux kernel; use a disposable Ubuntu VM or Linux machine for that part. WSL may not provide matching module headers or permit loading this out-of-tree driver.
 
 ### Build from an existing Windows checkout in WSL
 
@@ -75,10 +78,11 @@ If the source is already under `/mnt/c`, keep CMake's build output in WSL's Linu
 
 ```bash
 cmake -S "/mnt/c/Projects/Wipro Project" -B "$HOME/kvault-build" \
-  -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+  -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DBUILD_GUI=ON
 cmake --build "$HOME/kvault-build" --parallel
 ctest --test-dir "$HOME/kvault-build" --output-on-failure
 "$HOME/kvault-build/kvault" --help
+"$HOME/kvault-build/kvault-gui"
 ```
 
 For a normal Linux checkout, the same configure/build/test commands work with `-S . -B build`.
@@ -127,7 +131,17 @@ echo 'Round trip verified: source and restored files match.'
 
 The encrypted record is stored at `$DEMO_DIR/vault/records/example.txt.enc`.
 
-> **Passphrase handling:** The current CLI accepts passphrases through `--key`. Shell history, process listings, and audit tools may expose command-line arguments. Use demonstration data and a non-sensitive passphrase during evaluation.
+## Run the desktop GUI
+
+On a Linux desktop or Ubuntu under WSLg, start the native interface with:
+
+```bash
+./build/kvault-gui
+```
+
+Choose a vault folder and initialize it, then use the **Encrypt a file** and **Decrypt a record** tabs. The process overview changes with the selected tab and shows the encryption/authentication or verification/decryption sequence. The GUI does not shell out to the CLI; both front ends call the same `VaultManager` and cryptographic implementation. No browser, HTML, JavaScript, or Python application is included.
+
+> **Passphrase handling:** The CLI accepts passphrases through `--key`; shell history and process inspection may expose command-line arguments. The GUI masks typed passphrases and calls the vault engine directly. This remains an educational prototype and has not received a security audit; use demonstration data and non-sensitive passphrases.
 
 For the 5–10 minute recruiter walkthrough, use [`docs/RECRUITER_DEMO.md`](docs/RECRUITER_DEMO.md). The full build and operator workflow is in [`docs/PROTOTYPE_RUNBOOK.md`](docs/PROTOTYPE_RUNBOOK.md); architecture and record format are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -189,7 +203,7 @@ GitHub Actions builds and tests the user-space project with GCC and Clang and co
 ├── .github/workflows/       GitHub Actions build and test workflow
 ├── driver/                  C Linux character-device driver and Kbuild files
 ├── include/                 C++ interfaces and shared driver IOCTL definitions
-├── src/                     C++20 CLI, vault engine, and POSIX components
+├── src/                     C++20 CLI, optional Qt GUI, vault engine, and POSIX components
 ├── tests/                   GoogleTest C++ test suite
 ├── docs/                     Architecture and operator documentation
 ├── CMakeLists.txt           Linux-only CMake build

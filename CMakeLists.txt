@@ -36,6 +36,14 @@ target_include_directories(kvault_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/inclu
 add_executable(kvault src/main.cpp)
 target_link_libraries(kvault PRIVATE kvault_core)
 
+option(BUILD_GUI "Build the optional native Qt desktop interface" OFF)
+if(BUILD_GUI)
+    find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets)
+    add_executable(kvault-gui src/gui_main.cpp)
+    target_link_libraries(kvault-gui PRIVATE kvault_core Qt6::Widgets)
+    install(TARGETS kvault-gui RUNTIME DESTINATION bin)
+endif()
+
 find_program(MAKE_EXE make REQUIRED)
 add_custom_target(driver
     COMMAND "${MAKE_EXE}" -C "${CMAKE_CURRENT_SOURCE_DIR}/driver" all

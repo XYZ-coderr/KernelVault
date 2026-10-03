@@ -8,11 +8,11 @@ Install the prerequisites on Debian or Ubuntu, then configure, build, and run CT
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential cmake libgtest-dev
+sudo apt install -y build-essential cmake libgtest-dev qt6-base-dev
 ```
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DBUILD_GUI=ON
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
@@ -29,6 +29,8 @@ The current GoogleTest targets cover:
 The record-integrity checks include tampered ciphertext and tampered version 2 header data.
 
 The tests run only on Linux because they exercise POSIX descriptors, locks, and file permissions.
+
+The GUI is included in the C++ build when `BUILD_GUI=ON`. Automated tests cover the shared vault engine; there is no automated Qt window-interaction test. To build just the CLI/test suite on a machine without Qt, omit `qt6-base-dev` and configure with `-DBUILD_GUI=OFF`.
 
 ## Sanitizers
 

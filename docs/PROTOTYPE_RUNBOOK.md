@@ -1,16 +1,16 @@
 # Linux Prototype Runbook
 
-This guide builds and exercises the KernelVault C++ CLI and, optionally, the Linux character driver on a Linux machine or virtual machine. The CLI also runs on Ubuntu under WSL2; driver loading and testing should use a suitable Linux VM or machine.
+This guide builds and exercises the KernelVault C++ CLI, optional native Qt desktop interface, and Linux character driver on a Linux machine or virtual machine. The CLI and GUI run on Ubuntu under WSL2 with WSLg; driver loading and testing should use a suitable Linux VM or machine.
 
-For a timed presentation to a recruiter or trainer, follow [`RECRUITER_DEMO.md`](RECRUITER_DEMO.md). The prototype is terminal-operated; no GUI is required.
+For a timed presentation to a recruiter or trainer, follow [`RECRUITER_DEMO.md`](RECRUITER_DEMO.md). The GUI gives reviewers a guided view; the CLI remains available to demonstrate the command interface.
 
 ## 1. Install build dependencies
 
-On Debian or Ubuntu, install the CLI and test dependencies:
+On Debian or Ubuntu, install the CLI, test, and GUI dependencies:
 
 ```bash
 sudo apt update
-sudo apt install -y git build-essential cmake libgtest-dev
+sudo apt install -y git build-essential cmake libgtest-dev qt6-base-dev
 ```
 
 If starting from a fresh clone, clone it into a Linux filesystem directory. In WSL, use `$HOME` (for example, `~/KernelVault`) rather than `/mnt/c`; Windows-mounted paths may prevent CMake from creating generated files. CMake can fetch GoogleTest if the system package cannot be found, which requires network access.
@@ -25,12 +25,22 @@ cd "$HOME/KernelVault"
 Run commands from the repository root:
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DBUILD_GUI=ON
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
 
-The executable is `build/kvault`.
+The CLI is `build/kvault`; the GUI is `build/kvault-gui`. To build only the CLI, pass `-DBUILD_GUI=OFF` and omit the Qt development package.
+
+## Optional: launch the desktop GUI
+
+On a Linux desktop or Ubuntu under WSLg:
+
+```bash
+./build/kvault-gui
+```
+
+Choose or initialize a vault, then follow the process overview above the Encrypt and Decrypt tabs. The GUI calls the same C++ vault engine as the CLI.
 
 ## 3. Create test input and vault
 
@@ -75,7 +85,7 @@ sudo rmmod kvault
 ## 6. Inspect vault status
 
 ```bash
-./build/kvault status --vault /tmp/kvault-demo
+./build/kvault status --vault "$DEMO_DIR/vault"
 ```
 
 ## 7. Clean up
@@ -90,7 +100,8 @@ This removes only the temporary demonstration directory created by `mktemp`. Lea
 
 - **`cmake` is not recognized in PowerShell:** open the Ubuntu/WSL terminal and run the Linux build commands there.
 - **CMake reports `Operation not permitted` under WSL:** clone the repository under `$HOME` and build there. If keeping the checkout under `/mnt/c`, set the build directory to a Linux path such as `$HOME/kvault-build`.
-- **Driver build or module loading fails in WSL:** use a Linux VM or machine with matching kernel headers and permission to load modules. The CLI can still run in its user-space fallback mode.
+- **GUI does not open in WSL:** confirm WSLg is available; otherwise use a Linux desktop or VM. The CLI continues to work without a graphical display.
+- **Driver build or module loading fails in WSL:** use a Linux VM or machine with matching kernel headers and permission to load modules. The CLI and GUI can still run in their user-space fallback mode.
 - **`cmp` reports a difference:** confirm decryption used the same passphrase and inspect the command's exit status; `cmp` prints nothing when files match. Check that the reported recovered byte count matches the source file size.
 - **Kernel headers are missing:** install headers matching the target kernel or provide the desired Kbuild directory with `make -C driver KDIR=/path/to/kernel/build`.
 - **`insmod` fails:** inspect `sudo dmesg`; check that the module was built against the target kernel and that kernel module loading is permitted.

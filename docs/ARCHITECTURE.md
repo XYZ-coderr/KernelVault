@@ -1,12 +1,13 @@
 # Architecture
 
-KernelVault is split across a Linux user-space application and a Linux character-device driver. The application owns vault policy, key derivation, record authentication, locking, and durable file writes. The driver exposes a narrow IOCTL boundary for cipher transformations through the Linux Kernel Crypto API.
+KernelVault is split across a Linux user-space application and a Linux character-device driver. Users can access the same C++ vault engine through the CLI or the optional native Qt Widgets desktop app. The application owns vault policy, key derivation, record authentication, locking, and durable file writes. The driver exposes a narrow IOCTL boundary for cipher transformations through the Linux Kernel Crypto API.
 
 ## Main flow
 
 ```mermaid
 flowchart LR
     CLI["C++20 CLI"] --> VM["VaultManager"]
+    GUI["Optional C++ / Qt GUI"] --> VM
     VM --> KDF["PBKDF2-HMAC-SHA256"]
     VM --> LOCK["POSIX fcntl locks"]
     VM --> CRYPTO{"Driver available?"}
@@ -24,6 +25,7 @@ flowchart LR
 | Component | Responsibility |
 | --- | --- |
 | `src/main.cpp` | Parses `init`, `encrypt`, `decrypt`, and `status` commands. |
+| `src/gui_main.cpp` | Provides guided file selection, vault setup, encrypt/decrypt actions, and a plain-language process overview. Operations run away from the UI thread. |
 | `src/VaultManager.cpp` | Coordinates vault metadata, record processing, the driver session, and fallback cipher path. |
 | `src/KeyDerivation.cpp` | Implements PBKDF2-HMAC-SHA256, HMAC-SHA256, random salt/IV generation, and buffer clearing. |
 | `src/FileLock.cpp` | Uses POSIX `fcntl` locks to coordinate processes working on the same vault record. |
@@ -44,7 +46,9 @@ The driver performs the AES transformation only. Key derivation and record authe
 
 The driver registers one character device and permits one open session at a time. The user-space engine configures mode, key, and IV through IOCTL calls and submits transformation buffers. Driver state is protected by a mutex; the exclusive-open state is guarded atomically. On release, the driver clears session key/IV material. The module depends on the running Linux kernel's character-device and Crypto API interfaces.
 
-The driver is optional for CLI operation. A missing or inaccessible `/dev/kvault` selects the software fallback. This behavior is functional fallback, not a claim that the driver accelerates hardware.
+The driver is optional for CLI and GUI operation. A missing or inaccessible `/dev/kvault` selects the software fallback. This behavior is functional fallback, not a claim that the driver accelerates hardware.
+
+The GUI is an optional Qt 6 Widgets front end. It calls `VaultManager` directly rather than shelling out to the CLI. Its three-step process overview changes with the selected operation: encryption shows file selection, encryption/authentication, and vault storage; decryption shows record selection, authentication, and plaintext restoration. The interface is written in C++ and does not contain a browser-based or web application.
 
 ## Vault record
 

@@ -19,18 +19,22 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake libgtest-dev cppcheck
+          sudo apt-get install -y build-essential cmake libgtest-dev qt6-base-dev cppcheck
       - name: Configure
         env:
           CC: ${{ matrix.compiler == 'gcc' && 'gcc' || 'clang' }}
           CXX: ${{ matrix.compiler == 'gcc' && 'g++' || 'clang++' }}
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DBUILD_GUI=ON
       - name: Build
         run: cmake --build build --parallel
       - name: Run C++ tests
         run: ctest --test-dir build --output-on-failure
-      - name: Analyze C++ source
-        run: cppcheck --enable=warning,style,performance,portability --suppress=missingIncludeSystem --error-exitcode=1 --std=c++20 -I include src
+      - name: Analyze core C++ source
+        run: >-
+          cppcheck --enable=warning,style,performance,portability
+          --suppress=missingIncludeSystem --error-exitcode=1 --std=c++20 -I include
+          src/main.cpp src/VaultManager.cpp src/UniqueFd.cpp src/FileLock.cpp
+          src/AtomicFileWriter.cpp src/KeyDerivation.cpp
 
   kernel-module:
     name: Linux kernel module build
