@@ -529,7 +529,9 @@ bool VaultManager::encryptFile(const std::filesystem::path& srcFile, std::string
         size_t chunkBytes = static_cast<size_t>(bytesRead);
 
         std::vector<uint8_t> toEncrypt;
-        toEncrypt.insert(toEncrypt.end(), inChunk.begin(), inChunk.begin() + chunkBytes);
+        const auto chunkEnd = inChunk.begin() +
+                              static_cast<std::vector<uint8_t>::difference_type>(chunkBytes);
+        toEncrypt.insert(toEncrypt.end(), inChunk.begin(), chunkEnd);
 
         if (isEof) {
             size_t padLen = 16 - (chunkBytes % 16);

@@ -63,8 +63,10 @@ public:
             m_buffer[m_bufferLen++] = 0x00;
         }
 
-        for (int i = 7; i >= 0; --i) {
-            m_buffer[56 + (7 - i)] = static_cast<uint8_t>((m_count >> (i * 8)) & 0xFF);
+        for (size_t i = 0; i < 8; ++i) {
+            const size_t byteIndex = 56U + i;
+            const size_t shift = (7U - i) * 8U;
+            m_buffer[byteIndex] = static_cast<uint8_t>((m_count >> shift) & 0xFFU);
         }
         transform(m_buffer.data());
 
@@ -293,7 +295,8 @@ bool KeyDerivation::verifyHmacConstantTime(std::span<const uint8_t> key,
 
     uint8_t diff = 0;
     for (size_t i = 0; i < HMAC_SIZE; ++i) {
-        diff |= (computed[i] ^ expectedHmac[i]);
+        const uint8_t byteDiff = static_cast<uint8_t>(computed[i] ^ expectedHmac[i]);
+        diff = static_cast<uint8_t>(diff | byteDiff);
     }
 
     secureZero(computed.data(), sizeof(computed));
