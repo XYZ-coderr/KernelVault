@@ -384,6 +384,7 @@ const IOCTL_DEFINITIONS = {
     code: '0x80186b05',
     dir: '_IOR',
     type: 'struct kvault_status_param',
+    summary: 'Ask the driver whether a key is loaded, which mode is selected, and how much data has been processed.',
     c_struct: `struct kvault_status_param {
     uint32_t is_key_set;          /* 1 if master key is loaded in kernel */
     uint32_t cipher_mode;         /* 0 = Encrypt, 1 = Decrypt */
@@ -397,41 +398,41 @@ const IOCTL_DEFINITIONS = {
     code: '0x40246b01',
     dir: '_IOW',
     type: 'struct kvault_key_param',
+    summary: 'Load a demonstration 32-byte AES key into the simulated driver so it can process data.',
     c_struct: `struct kvault_key_param {
     uint8_t key[32];              /* 256-bit AES master key material */
     uint32_t key_len;             /* Must equal exactly 32 bytes */
 };`,
-    fields: [
-      { name: 'key_hex', label: 'AES-256 Key Material (64 Hex Characters)', default: '8f4c29b1d70e5a31a9834cf20918bd44c2195f00e84b7261a34891cd0275ef9a' },
-      { name: 'key_len', label: 'Key Length (Bytes)', default: '32', readonly: true }
-    ]
+    fields: []
   },
   KVAULT_IOCTL_SET_IV: {
     macro: 'KVAULT_IOCTL_SET_IV',
     code: '0x40146b03',
     dir: '_IOW',
     type: 'struct kvault_iv_param',
+    summary: 'Set the starting value for AES-CBC. The simulator supplies a sample value for this request.',
     c_struct: `struct kvault_iv_param {
     uint8_t iv[16];               /* 128-bit CBC Initialization Vector */
     uint32_t iv_len;              /* Must equal exactly 16 bytes */
 };`,
-    fields: [
-      { name: 'iv_hex', label: 'Initialization Vector (32 Hex Characters)', default: '1f8b4e7203a9cd5491e70258b34c2190' },
-      { name: 'iv_len', label: 'IV Length (Bytes)', default: '16', readonly: true }
-    ]
+    fields: []
   },
   KVAULT_IOCTL_SET_MODE: {
     macro: 'KVAULT_IOCTL_SET_MODE',
     code: '0x40046b04',
     dir: '_IOW',
     type: 'int',
+    summary: 'Tell the driver whether the next buffer should be encrypted or decrypted.',
     c_struct: `/* Direct scalar parameter */
 enum kvault_cipher_mode {
     KVAULT_MODE_ENCRYPT = 0,
     KVAULT_MODE_DECRYPT = 1
 };`,
     fields: [
-      { name: 'mode_val', label: 'Cipher Mode (0=Encrypt, 1=Decrypt)', default: '0' }
+      { name: 'mode_val', label: 'Choose a mode', default: '0', options: [
+        { value: '0', label: 'Encrypt' },
+        { value: '1', label: 'Decrypt' }
+      ] }
     ]
   },
   KVAULT_IOCTL_TRANSFORM: {
@@ -439,6 +440,7 @@ enum kvault_cipher_mode {
     code: '0xc0186b06',
     dir: '_IOWR',
     type: 'struct kvault_transform_param',
+    summary: 'Ask the driver to process a data buffer. Load a key first; its size must be a multiple of AES-CBC’s 16-byte block size.',
     c_struct: `struct kvault_transform_param {
     const uint8_t *src;           /* Pointer to user-space input buffer */
     uint8_t *dst;                 /* Pointer to user-space output buffer */
@@ -446,8 +448,7 @@ enum kvault_cipher_mode {
     uint32_t mode;                /* 0 = Encrypt, 1 = Decrypt */
 };`,
     fields: [
-      { name: 'buf_len', label: 'Buffer Length (Bytes, Multiple of 16)', default: '65536' },
-      { name: 't_mode', label: 'Transform Mode (0=Encrypt, 1=Decrypt)', default: '0' }
+      { name: 'buf_len', label: 'Data size in bytes (multiple of 16)', default: '65536' }
     ]
   },
   KVAULT_IOCTL_FLUSH_KEY: {
@@ -455,6 +456,7 @@ enum kvault_cipher_mode {
     code: '0x00006b02',
     dir: '_IO',
     type: 'void',
+    summary: 'Clear the demonstration key from simulated driver memory when the work is finished.',
     c_struct: `/* No payload: immediately executes memzero_explicit() in kernel RAM */`,
     fields: []
   }
@@ -471,22 +473,28 @@ function renderIoctlParams() {
   if (!def) return;
 
   codeView.textContent = def.c_struct;
+  const commandCode = $('ioctl-command-code');
+  if (commandCode) commandCode.textContent = `${def.macro} · ${def.code} · ${def.dir}`;
+  container.innerHTML = `<p class="ioctl-command-help">${def.summary}</p>`;
 
   if (def.fields.length === 0) {
-    container.innerHTML = `<p class="section-desc">Command <code>${def.macro}</code> does not require user input parameters.</p>`;
+    container.insertAdjacentHTML('beforeend', '<p class="ioctl-no-parameters">No extra values are needed for this request.</p>');
     return;
   }
 
   let html = '';
   def.fields.forEach(f => {
+    const control = f.options
+      ? `<select class="form-select" id="param-${f.name}">${f.options.map(option => `<option value="${option.value}" ${option.value === f.default ? 'selected' : ''}>${option.label}</option>`).join('')}</select>`
+      : `<input type="text" class="form-input" id="param-${f.name}" value="${f.default}" ${f.readonly ? 'readonly' : ''}>`;
     html += `
       <div class="form-group">
-        <label class="form-label" for="param-${f.name}">${f.label}:</label>
-        <input type="text" class="form-input" id="param-${f.name}" value="${f.default}" ${f.readonly ? 'readonly' : ''}>
+        <label class="form-label" for="param-${f.name}">${f.label}</label>
+        ${control}
       </div>
     `;
   });
-  container.innerHTML = html;
+  container.insertAdjacentHTML('beforeend', html);
 }
 
 function updateDriverStateDisplay() {
@@ -496,11 +504,18 @@ function updateDriverStateDisplay() {
   const stMode = $('kstate-mode');
   const stBytes = $('kstate-bytes');
 
-  if (stStatus) stStatus.textContent = KernelDeviceState.loaded ? 'ONLINE (/dev/kvault)' : 'UNLOADED';
-  if (stBusy) stBusy.textContent = `${KernelDeviceState.busy} (${KernelDeviceState.busy ? 'LOCKED' : 'UNLOCKED'})`;
-  if (stKey) stKey.textContent = KernelDeviceState.is_key_set ? 'LOADED (256-bit AES)' : 'NOT LOADED';
-  if (stMode) stMode.textContent = KernelDeviceState.cipher_mode === 0 ? 'ENCRYPT (0)' : 'DECRYPT (1)';
-  if (stBytes) stBytes.textContent = formatBytes(KernelDeviceState.bytes_transformed);
+  if (stStatus) stStatus.textContent = KernelDeviceState.loaded ? 'Ready (simulation)' : 'Stopped';
+  if (stBusy) stBusy.textContent = KernelDeviceState.busy ? 'Busy' : 'Ready';
+  if (stKey) stKey.textContent = KernelDeviceState.is_key_set ? 'Loaded' : 'Not loaded';
+  if (stMode) stMode.textContent = KernelDeviceState.cipher_mode === 0 ? 'Encrypt' : 'Decrypt';
+  if (stBytes) stBytes.textContent = `${formatBytes(KernelDeviceState.bytes_transformed)} processed`;
+}
+
+function showIoctlResult(message, type = 'success') {
+  const result = $('ioctl-result');
+  if (!result) return;
+  result.textContent = message;
+  result.className = `ioctl-result ioctl-result-${type}`;
 }
 
 function dispatchIoctlCall() {
@@ -511,39 +526,51 @@ function dispatchIoctlCall() {
   switch (cmd) {
     case 'KVAULT_IOCTL_GET_STATUS':
       appendKernelLog(`ioctl(KVAULT_IOCTL_GET_STATUS): returned is_key_set=${KernelDeviceState.is_key_set}, mode=${KernelDeviceState.cipher_mode}, bytes=${KernelDeviceState.bytes_transformed}`);
+      showIoctlResult(`Driver is ready. Key ${KernelDeviceState.is_key_set ? 'is loaded' : 'is not loaded'}; mode is ${KernelDeviceState.cipher_mode === 0 ? 'encryption' : 'decryption'}; ${formatBytes(KernelDeviceState.bytes_transformed)} processed.`);
       break;
 
     case 'KVAULT_IOCTL_SET_KEY':
       KernelDeviceState.is_key_set = true;
       KernelDeviceState.active_key_hex = $('param-key_hex') ? $('param-key_hex').value : '8f...';
-      appendKernelLog(`ioctl(KVAULT_IOCTL_SET_KEY): loaded 32 bytes into kzalloc context (crypto_skcipher_setkey OK)`);
+      appendKernelLog('ioctl(KVAULT_IOCTL_SET_KEY): demonstration key loaded into simulated driver state');
+      showIoctlResult('Demo key loaded. The simulated driver is now ready to process a data buffer.');
       break;
 
     case 'KVAULT_IOCTL_SET_IV':
       KernelDeviceState.active_iv_hex = $('param-iv_hex') ? $('param-iv_hex').value : '1f...';
-      appendKernelLog(`ioctl(KVAULT_IOCTL_SET_IV): synchronization vector set (16 bytes)`);
+      appendKernelLog('ioctl(KVAULT_IOCTL_SET_IV): demonstration IV configured in simulated driver state');
+      showIoctlResult('Initialization value set. This value is used to start the AES-CBC operation.');
       break;
 
     case 'KVAULT_IOCTL_SET_MODE':
       const modeVal = $('param-mode_val') ? parseInt($('param-mode_val').value, 10) : 0;
       KernelDeviceState.cipher_mode = modeVal === 1 ? 1 : 0;
       appendKernelLog(`ioctl(KVAULT_IOCTL_SET_MODE): mode changed to ${KernelDeviceState.cipher_mode === 0 ? 'ENCRYPT' : 'DECRYPT'}`);
+      showIoctlResult(`Mode set to ${KernelDeviceState.cipher_mode === 0 ? 'encryption' : 'decryption'}.`);
       break;
 
     case 'KVAULT_IOCTL_TRANSFORM':
       if (!KernelDeviceState.is_key_set) {
         appendKernelLog(`ioctl(KVAULT_IOCTL_TRANSFORM): -EINVAL - master key not configured`, 'log-err');
+        showIoctlResult('Request rejected: load a demo key before asking the driver to process data.', 'error');
         return;
       }
       const bLen = $('param-buf_len') ? parseInt($('param-buf_len').value, 10) : 65536;
+      if (!Number.isFinite(bLen) || bLen <= 0 || bLen % 16 !== 0) {
+        appendKernelLog('ioctl(KVAULT_IOCTL_TRANSFORM): invalid buffer size; expected a positive multiple of 16 bytes', 'log-err');
+        showIoctlResult('Request rejected: the buffer size must be a positive multiple of 16 bytes for AES-CBC.', 'error');
+        return;
+      }
       KernelDeviceState.bytes_transformed += bLen;
-      appendKernelLog(`ioctl(KVAULT_IOCTL_TRANSFORM): successfully processed ${bLen} bytes via scatterlist DMA`);
+      appendKernelLog(`ioctl(KVAULT_IOCTL_TRANSFORM): simulation processed ${bLen} bytes in ${KernelDeviceState.cipher_mode === 0 ? 'encrypt' : 'decrypt'} mode`);
+      showIoctlResult(`${formatBytes(bLen)} processed in ${KernelDeviceState.cipher_mode === 0 ? 'encryption' : 'decryption'} mode. (Simulated result; no real file was changed.)`);
       break;
 
     case 'KVAULT_IOCTL_FLUSH_KEY':
       KernelDeviceState.is_key_set = false;
       KernelDeviceState.active_key_hex = null;
-      appendKernelLog(`ioctl(KVAULT_IOCTL_FLUSH_KEY): memzero_explicit() wiped session key`);
+      appendKernelLog('ioctl(KVAULT_IOCTL_FLUSH_KEY): demonstration key cleared from simulated driver state');
+      showIoctlResult('Demo key cleared from the simulated driver.');
       break;
   }
 
@@ -563,8 +590,11 @@ function initIoctlTestbed() {
     KernelDeviceState.bytes_transformed = 0;
     KernelDeviceState.cipher_mode = 0;
     KernelDeviceState.busy = 0;
-    appendKernelLog(`driver reset: simulated reload of sec_crypto.ko; structures reinitialized`);
+    KernelDeviceState.active_key_hex = null;
+    KernelDeviceState.active_iv_hex = null;
+    appendKernelLog('driver reset: IOCTL simulation state returned to defaults');
     updateDriverStateDisplay();
+    showIoctlResult('Simulation reset. The demo key and processed-byte count are cleared.');
   });
 
   const btnClearLog = $('btn-clear-klog');

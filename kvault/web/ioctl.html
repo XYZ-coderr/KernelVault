@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KernelVault (kvault) — Systems Architecture, IOCTL Telemetry & Engineering Manual</title>
-  <meta name="description" content="Technical telemetry dashboard, interactive IOCTL testbed, 96-byte binary frame dissector, and complete systems engineering reference for the Linux kernel-assisted secure storage architecture (kvault).">
+  <title>KernelVault — How the App Talks to the Linux Driver</title>
+  <meta name="description" content="A plain-language introduction and interactive simulation of KernelVault driver requests (IOCTLs).">
   
   <!-- System Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,25 +35,11 @@
       </div>
     </div>
 
-    <!-- Live Kernel Device Telemetry -->
+    <!-- This page's controls are simulated in the browser -->
     <div class="header-telemetry">
-      <div class="telemetry-item" title="Kernel Character Device Node Status">
-        <span class="telem-label">DEV NODE</span>
-        <span class="telem-value status-online">
-          <span class="status-indicator"></span> /dev/kvault (243:0)
-        </span>
-      </div>
-      <div class="telemetry-item" title="Kernel Device Concurrency Lock (atomic_cmpxchg)">
-        <span class="telem-label">ATOMIC GATE</span>
-        <span class="telem-value" id="telem-gate-val">UNLOCKED (0)</span>
-      </div>
-      <div class="telemetry-item" title="Cipher Subsystem in Kernel Space">
-        <span class="telem-label">KERNEL CIPHER</span>
-        <span class="telem-value">cbc(aes) 256-bit</span>
-      </div>
-      <div class="telemetry-item" title="POSIX Advisory Lock Mode">
-        <span class="telem-label">CONCURRENCY</span>
-        <span class="telem-value">fcntl(F_WRLCK)</span>
+      <div class="telemetry-item" title="This page demonstrates driver requests without connecting to a live kernel device">
+        <span class="telem-label">PAGE MODE</span>
+        <span class="telem-value">Browser simulation · no live driver</span>
       </div>
     </div>
 
@@ -103,95 +89,88 @@
   <main class="app-body">
 
 <div class="tab-pane active" role="tabpanel">
-<div class="split-pane">
-        <!-- Left: IOCTL Dispatcher -->
-        <div class="pane-column">
-          <div class="panel-section">
-            <h2 class="section-title">IOCTL Command Dispatcher</h2>
-            <p class="section-desc">Direct interface to interact with the <code>/dev/kvault</code> driver IOCTL control plane. Test boundary validation, struct packing, and return codes.</p>
+  <section class="panel-section ioctl-intro">
+    <span class="flow-eyebrow">KERNEL IOCTL · PLAIN LANGUAGE</span>
+    <h1 class="ioctl-page-title">How the app asks the kernel for help</h1>
+    <p class="section-desc">An IOCTL (input/output control) is a named request an application sends to a device driver. KernelVault uses these requests to prepare, encrypt, or decrypt data.</p>
+    <div class="ioctl-simulation-note"><strong>This page is a simulation.</strong> Try the requests below to see how the driver state changes. It does not call a real kernel driver.</div>
 
-            <div class="form-group">
-              <label for="ioctl-select" class="form-label">Target IOCTL Command:</label>
-              <select id="ioctl-select" class="form-select">
-                <option value="KVAULT_IOCTL_GET_STATUS">0x80186b05 — KVAULT_IOCTL_GET_STATUS (Read Driver Status)</option>
-                <option value="KVAULT_IOCTL_SET_KEY">0x40246b01 — KVAULT_IOCTL_SET_KEY (Load 256-bit AES Key)</option>
-                <option value="KVAULT_IOCTL_SET_IV">0x40146b03 — KVAULT_IOCTL_SET_IV (Load 128-bit CBC IV)</option>
-                <option value="KVAULT_IOCTL_SET_MODE">0x40046b04 — KVAULT_IOCTL_SET_MODE (Set Encrypt/Decrypt Mode)</option>
-                <option value="KVAULT_IOCTL_TRANSFORM">0xc0186b06 — KVAULT_IOCTL_TRANSFORM (Synchronous Buffer Transform)</option>
-                <option value="KVAULT_IOCTL_FLUSH_KEY">0x00006b02 — KVAULT_IOCTL_FLUSH_KEY (Purge Kernel Key RAM)</option>
-              </select>
-            </div>
+    <ol class="ioctl-simple-flow" aria-label="Three steps in a KernelVault driver request">
+      <li><span class="ioctl-flow-number">1</span><div><h2>The app asks</h2><p>It sends a named request with any required data.</p></div></li>
+      <li><span class="ioctl-flow-number">2</span><div><h2>The driver checks</h2><p>It validates the request and uses the kernel crypto service.</p></div></li>
+      <li><span class="ioctl-flow-number">3</span><div><h2>The app gets a result</h2><p>The driver returns a status and, for data requests, the transformed bytes.</p></div></li>
+    </ol>
+  </section>
 
-            <!-- Dynamic Parameter Form -->
-            <div id="ioctl-param-container" class="param-box">
-              <!-- Rendered dynamically by JS -->
-            </div>
+  <div class="ioctl-workspace">
+    <section class="panel-section ioctl-request-panel">
+      <span class="flow-eyebrow">INTERACTIVE DEMO</span>
+      <h2 class="subsection-title">Try a driver request</h2>
+      <p class="section-desc">Choose an action, fill in any requested value, then send it to the simulated driver.</p>
+      <p class="ioctl-quick-start"><strong>To see a full example:</strong> Load a demo key → choose a mode → process a buffer → clear the key.</p>
 
-            <div class="btn-row">
-              <button class="btn btn-primary" id="btn-dispatch-ioctl">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                <span>Dispatch ioctl(2) Call</span>
-              </button>
-              <button class="btn btn-secondary" id="btn-reset-driver">
-                <span>Simulate Driver Reload</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Kernel Driver C Struct View -->
-          <div class="panel-section">
-            <h3 class="subsection-title">IOCTL C Struct Contract (from <code>include/kvault_ioctl.h</code>)</h3>
-            <pre class="code-view" id="ioctl-struct-code">/* Selected struct definition will appear here */</pre>
-          </div>
-        </div>
-
-        <!-- Right: Execution Log & Driver State -->
-        <div class="pane-column">
-          <!-- Current Driver Internal Context -->
-          <div class="panel-section">
-            <h3 class="subsection-title">Kernel Device Driver Internal State (<code>struct kvault_dev</code>)</h3>
-            <div class="driver-state-grid">
-              <div class="state-card">
-                <span class="state-label">DEVICE STATUS</span>
-                <span class="state-value" id="kstate-status">INITIALIZED</span>
-              </div>
-              <div class="state-card">
-                <span class="state-label">BUSY FLAG (atomic_t)</span>
-                <span class="state-value" id="kstate-busy">0 (UNLOCKED)</span>
-              </div>
-              <div class="state-card">
-                <span class="state-label">MASTER KEY STATE</span>
-                <span class="state-value" id="kstate-key">NOT LOADED</span>
-              </div>
-              <div class="state-card">
-                <span class="state-label">ACTIVE MODE</span>
-                <span class="state-value" id="kstate-mode">ENCRYPT (0)</span>
-              </div>
-              <div class="state-card">
-                <span class="state-label">BYTES TRANSFORMED</span>
-                <span class="state-value" id="kstate-bytes">0 B</span>
-              </div>
-              <div class="state-card">
-                <span class="state-label">KMALLOC ADDRESS</span>
-                <span class="state-value code-font">0xffff8880042e3000</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Kernel Execution Log / dmesg -->
-          <div class="panel-section">
-            <div class="section-header-compact">
-              <h3 class="subsection-title">Kernel Ring Buffer (<code>dmesg | grep kvault</code>)</h3>
-              <button class="btn btn-xs" id="btn-clear-klog">Clear Log</button>
-            </div>
-            <div class="console-box" id="ioctl-klog">
-              <div class="log-entry log-kernel">[    0.000000] kvault: character device registered with major 243, minor 0</div>
-              <div class="log-entry log-kernel">[    0.000002] kvault: skcipher allocated ("cbc(aes)") - crypto hardware ready</div>
-              <div class="log-entry log-kernel">[    0.000005] kvault: atomic gate initialized to 0</div>
-            </div>
-          </div>
-        </div>
+      <div class="form-group">
+        <label for="ioctl-select" class="form-label">What should the driver do?</label>
+        <select id="ioctl-select" class="form-select">
+          <option value="KVAULT_IOCTL_GET_STATUS">Check driver status</option>
+          <option value="KVAULT_IOCTL_SET_KEY">Load a demo encryption key</option>
+          <option value="KVAULT_IOCTL_SET_IV">Set the encryption starting value (IV)</option>
+          <option value="KVAULT_IOCTL_SET_MODE">Choose encryption or decryption</option>
+          <option value="KVAULT_IOCTL_TRANSFORM">Process a data buffer</option>
+          <option value="KVAULT_IOCTL_FLUSH_KEY">Clear the key from driver memory</option>
+        </select>
       </div>
+
+      <div id="ioctl-param-container" class="param-box"></div>
+
+      <div class="btn-row ioctl-actions">
+        <button class="btn btn-primary" id="btn-dispatch-ioctl">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span>Send request</span>
+        </button>
+        <button class="btn btn-secondary" id="btn-reset-driver">Reset simulation</button>
+      </div>
+
+      <details class="ioctl-advanced-details">
+        <summary>Show technical command and C structure</summary>
+        <p class="ioctl-command-code"><code id="ioctl-command-code"></code></p>
+        <pre class="code-view" id="ioctl-struct-code">Select a request to view its C structure.</pre>
+      </details>
+    </section>
+
+    <aside class="ioctl-side-column">
+      <section class="panel-section">
+        <span class="flow-eyebrow">SIMULATED DRIVER</span>
+        <h2 class="subsection-title">Current state</h2>
+        <div class="driver-state-grid ioctl-state-grid">
+          <div class="state-card"><span class="state-label">Driver</span><span class="state-value" id="kstate-status">Ready (simulation)</span></div>
+          <div class="state-card"><span class="state-label">Request gate</span><span class="state-value" id="kstate-busy">Ready</span></div>
+          <div class="state-card"><span class="state-label">Encryption key</span><span class="state-value" id="kstate-key">Not loaded</span></div>
+          <div class="state-card"><span class="state-label">Selected mode</span><span class="state-value" id="kstate-mode">Encrypt</span></div>
+          <div class="state-card"><span class="state-label">Data processed</span><span class="state-value" id="kstate-bytes">0 B</span></div>
+        </div>
+      </section>
+
+      <section class="panel-section ioctl-activity-panel">
+        <span class="flow-eyebrow">RESULT</span>
+        <h2 class="subsection-title">What happened?</h2>
+        <p class="section-desc">The result appears here after you send a request. The current state above updates as the simulation runs.</p>
+        <div id="ioctl-result" class="ioctl-result" role="status" aria-live="polite">Choose a request above to see what it does.</div>
+      </section>
+
+      <details class="panel-section ioctl-log-details">
+        <summary>Show technical request log</summary>
+        <p class="ioctl-log-note">Simulated kernel-style messages for readers who want implementation detail.</p>
+        <div class="section-header-compact">
+          <span class="state-label">REQUEST LOG</span>
+          <button class="btn btn-xs" id="btn-clear-klog">Clear log</button>
+        </div>
+        <div class="console-box" id="ioctl-klog">
+          <div class="log-entry log-kernel">Simulation ready: driver starts with no key loaded.</div>
+        </div>
+      </details>
+    </aside>
+  </div>
 </div>
 </main>
 

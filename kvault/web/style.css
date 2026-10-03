@@ -986,6 +986,51 @@ body.theme-light .seg-hmac { background: #fce7f3; color: #9d174d; }
 @media (max-width: 1024px) { .split-pane { grid-template-columns: 1fr; } }
 .pane-column { display: flex; flex-direction: column; }
 
+/* Plain-language Kernel IOCTL explainer */
+.ioctl-intro { padding: clamp(22px, 4vw, 38px); }
+.ioctl-page-title { margin: 0; color: var(--text-primary); font-size: clamp(1.65rem, 3vw, 2.25rem); letter-spacing: -0.035em; }
+.ioctl-intro > .section-desc { max-width: 850px; font-size: 1rem; }
+.ioctl-simulation-note { margin-top: 18px; padding: 14px 16px; border: 1px solid var(--border-default); border-left: 3px solid var(--accent-primary); border-radius: var(--radius-sm); background: var(--bg-surface-elev); color: var(--text-secondary); line-height: 1.55; }
+.ioctl-simulation-note strong { color: var(--text-primary); }
+.ioctl-simple-flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; margin: 26px 0 0; padding: 0; list-style: none; }
+.ioctl-simple-flow li { min-width: 0; min-height: 108px; position: relative; display: flex; align-items: flex-start; gap: 14px; padding: 18px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--bg-surface); }
+.ioctl-simple-flow li:not(:last-child)::after { content: "→"; position: absolute; top: 38px; right: -23px; color: var(--accent-primary); font-size: 1.2rem; font-weight: 700; }
+.ioctl-flow-number { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; border-radius: 50%; background: var(--accent-light); color: var(--accent-primary); font-weight: 700; }
+.ioctl-simple-flow h2 { margin: 1px 0 5px; color: var(--text-primary); font-size: 0.98rem; }
+.ioctl-simple-flow p { margin: 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; }
+.ioctl-workspace { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.7fr); align-items: start; gap: 24px; }
+.ioctl-side-column { display: grid; gap: 20px; }
+.ioctl-request-panel, .ioctl-side-column > .panel-section { margin-bottom: 0; }
+.ioctl-request-panel > .section-desc, .ioctl-activity-panel > .section-desc { margin-bottom: 20px; }
+.ioctl-quick-start { margin: 0 0 20px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--accent-light); color: var(--text-secondary); font-size: 0.86rem; line-height: 1.55; }
+.ioctl-quick-start strong { color: var(--text-primary); }
+.ioctl-command-help { margin: 0 0 16px; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.55; }
+.ioctl-no-parameters { margin: 0 0 16px; color: var(--text-muted); font-size: 0.85rem; }
+.param-box { margin: 16px 0; padding: 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--bg-surface-elev); }
+.param-box .form-group:last-child { margin-bottom: 0; }
+.ioctl-result { padding: 15px 16px; border: 1px solid var(--border-default); border-radius: var(--radius-sm); background: var(--bg-surface-elev); color: var(--text-secondary); font-size: 0.9rem; line-height: 1.55; }
+.ioctl-result-success { border-left: 3px solid var(--status-ok); }
+.ioctl-result-error { border-left: 3px solid var(--status-err); color: var(--status-err); }
+.ioctl-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.ioctl-advanced-details, .ioctl-log-details { margin-top: 20px; padding: 15px 16px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--bg-surface); }
+.ioctl-advanced-details summary, .ioctl-log-details summary { color: var(--text-primary); cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+.ioctl-command-code { margin: 14px 0; color: var(--text-secondary); }
+.ioctl-command-code code { overflow-wrap: anywhere; }
+.ioctl-log-note { margin: 12px 0 18px; color: var(--text-muted); font-size: 0.82rem; line-height: 1.5; }
+.ioctl-log-details .section-header-compact { margin-bottom: 10px; }
+.ioctl-log-details .console-box { max-height: 240px; overflow: auto; }
+.driver-state-grid.ioctl-state-grid { margin-top: 4px; gap: 10px; }
+.ioctl-state-grid .state-card { padding: 13px; }
+.ioctl-state-grid .state-value { display: block; overflow-wrap: anywhere; }
+@media (max-width: 1024px) { .ioctl-workspace { grid-template-columns: 1fr; } }
+@media (max-width: 700px) {
+  .ioctl-simple-flow { grid-template-columns: 1fr; gap: 20px; }
+  .ioctl-simple-flow li { min-height: 0; }
+  .ioctl-simple-flow li:not(:last-child)::after { content: "↓"; top: auto; right: 50%; bottom: -20px; }
+  .ioctl-workspace { grid-template-columns: minmax(0, 1fr); }
+  .ioctl-state-grid { grid-template-columns: 1fr 1fr; }
+}
+
 /* Driver State Grid */
 .driver-state-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .state-card {
