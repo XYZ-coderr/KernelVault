@@ -37,38 +37,61 @@ The driver performs cipher transformations. The C++ application derives keys and
 
 ## Requirements
 
-- Linux (supported project target)
+- Linux (supported project target); Windows users can use Ubuntu on WSL2 for the CLI
 - CMake 3.20 or newer
 - GCC 11+ or Clang 14+ with C++20 support
 - GNU Make
-- Linux kernel headers matching the kernel against which the module will be built
-- GoogleTest for the test suite; CMake can fetch it if unavailable and network access is enabled
+- GoogleTest to build and run the test suite
+- Matching Linux kernel headers only when building the optional driver module
 
-On Debian or Ubuntu, install the user-space tools with:
+## Quick start (Linux or Ubuntu on WSL2)
+
+On Windows, if WSL2 is not installed yet, run this once from PowerShell as Administrator:
+
+```powershell
+wsl --install -d Ubuntu
+```
+
+Complete Ubuntu's first-run account setup. Then run the following commands in the **Ubuntu terminal** (not PowerShell). Clone into the Linux home directory. In WSL, building a checkout and build directory under `/mnt/c` can cause CMake `Operation not permitted` errors; keeping the checkout under `$HOME` avoids the Windows-mounted filesystem boundary.
 
 ```bash
 sudo apt update
-sudo apt install build-essential cmake libgtest-dev
-```
-
-To build the module for the currently running kernel, also install its matching headers and `kmod`:
-
-```bash
-sudo apt install linux-headers-$(uname -r) kmod
-```
-
-## Build
-
-From the repository root on Linux:
-
-```bash
+sudo apt install -y git build-essential cmake libgtest-dev
+git clone https://github.com/XYZ-coderr/KernelVault.git
+cd KernelVault
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+./build/kvault --help
 ```
 
-The executable is `build/kvault`.
+The command-line prototype is ready at `build/kvault`. The test suite uses the system GoogleTest installed by `libgtest-dev`; if CMake cannot find it, CMake's FetchContent fallback requires network access.
 
-Build the Linux kernel module separately:
+WSL supports building and running the CLI, which falls back to its user-space cipher when `/dev/kvault` is unavailable. Loading and demonstrating the kernel module requires a suitable Linux kernel; use a disposable Ubuntu VM or Linux machine for that part. WSL may not provide matching module headers or permit loading this out-of-tree driver.
+
+### Build from an existing Windows checkout in WSL
+
+If the source is already under `/mnt/c`, keep CMake's build output in WSL's Linux filesystem:
+
+```bash
+cmake -S "/mnt/c/Projects/Wipro Project" -B "$HOME/kvault-build" \
+  -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+cmake --build "$HOME/kvault-build" --parallel
+ctest --test-dir "$HOME/kvault-build" --output-on-failure
+"$HOME/kvault-build/kvault" --help
+```
+
+For a normal Linux checkout, the same configure/build/test commands work with `-S . -B build`.
+
+### Build the optional kernel driver
+
+On a Linux VM or machine with headers for its running kernel, install the driver build tools and matching headers:
+
+```bash
+sudo apt install -y kmod linux-headers-$(uname -r)
+```
+
+Then build the module separately:
 
 ```bash
 make -C driver
@@ -88,17 +111,21 @@ make -C driver KDIR=/path/to/kernel/build
 
 ## Run the CLI
 
-Create a vault, encrypt a file, decrypt it, and compare the restored data:
+The following self-contained round-trip creates temporary input, encrypts it, decrypts it, and stops with an error if the restored file differs:
 
 ```bash
-./build/kvault init --vault /tmp/kvault-demo
-./build/kvault encrypt --in ./example.txt --vault /tmp/kvault-demo --key 'demo-passphrase'
-./build/kvault decrypt --file example.txt --vault /tmp/kvault-demo --out ./example.restored.txt --key 'demo-passphrase'
-cmp ./example.txt ./example.restored.txt
-./build/kvault status --vault /tmp/kvault-demo
+set -eu
+DEMO_DIR="$(mktemp -d /tmp/kvault-demo.XXXXXX)"
+printf 'KernelVault demo data\n' > "$DEMO_DIR/example.txt"
+./build/kvault init --vault "$DEMO_DIR/vault"
+./build/kvault encrypt --in "$DEMO_DIR/example.txt" --vault "$DEMO_DIR/vault" --key 'demo-only-passphrase'
+./build/kvault decrypt --file example.txt --vault "$DEMO_DIR/vault" --out "$DEMO_DIR/restored.txt" --key 'demo-only-passphrase'
+cmp "$DEMO_DIR/example.txt" "$DEMO_DIR/restored.txt"
+echo 'Round trip verified: source and restored files match.'
+./build/kvault status --vault "$DEMO_DIR/vault"
 ```
 
-The encrypted record is stored at `/tmp/kvault-demo/records/example.txt.enc`.
+The encrypted record is stored at `$DEMO_DIR/vault/records/example.txt.enc`.
 
 > **Passphrase handling:** The current CLI accepts passphrases through `--key`. Shell history, process listings, and audit tools may expose command-line arguments. Use demonstration data and a non-sensitive passphrase during evaluation.
 

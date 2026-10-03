@@ -1,16 +1,23 @@
 # Build and Test Guide
 
-This document lists the checks available in the repository and their scope. It is a procedure, not a pass report; results should be recorded only after running them on the named environment.
+This document lists the checks available in the repository and their scope. It is a procedure, not a pass report; results should be recorded only after running them on the named environment. Use a Linux filesystem for both the checkout and build directory. In WSL, clone under `$HOME` rather than `/mnt/c` to avoid CMake file-generation permission errors.
 
 ## C++ build and unit/integration suite
 
-On Linux, configure, build, and run CTest from the repository root:
+Install the prerequisites on Debian or Ubuntu, then configure, build, and run CTest from the repository root:
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+sudo apt update
+sudo apt install -y build-essential cmake libgtest-dev
+```
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
+
+GoogleTest is resolved from the system package. CMake falls back to FetchContent when GoogleTest is unavailable, which requires network access.
 
 The current GoogleTest targets cover:
 
@@ -46,7 +53,7 @@ To target another installed kernel build directory, pass `KDIR=/path/to/kernel/b
 
 ## Manual driver exercise
 
-Module loading requires a suitable Linux kernel and root privileges. Use a disposable VM:
+Module compilation needs kernel headers for the target kernel. Module loading requires a suitable Linux kernel and root privileges. WSL may not provide the matching headers or permit this module to load; use a disposable Linux VM:
 
 ```bash
 sudo insmod driver/kvault.ko

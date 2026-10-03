@@ -44,7 +44,8 @@ TEST_F(AtomicFileWriterTest, CommitCreatesTargetFile) {
     // Verify content on disk
     std::ifstream ifs(m_targetFile, std::ios::binary);
     std::vector<uint8_t> readBack(payload.size());
-    ifs.read(reinterpret_cast<char*>(readBack.data()), readBack.size());
+    ifs.read(reinterpret_cast<char*>(readBack.data()),
+             static_cast<std::streamsize>(readBack.size()));
     EXPECT_EQ(readBack, payload);
 
     // Verify 0600 permissions

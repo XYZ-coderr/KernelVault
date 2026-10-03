@@ -37,7 +37,8 @@ protected:
         for (size_t i = 0; i < sizeBytes; ++i) {
             buffer[i] = static_cast<uint8_t>((i * 7 + 13) & 0xFF);
         }
-        ofs.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+        ofs.write(reinterpret_cast<const char*>(buffer.data()),
+                  static_cast<std::streamsize>(buffer.size()));
         return p;
     }
 
@@ -149,7 +150,7 @@ TEST_F(VaultIntegrationTest, RejectTamperedCiphertext) {
         stream.seekg(105);
         char b = 0;
         stream.read(&b, 1);
-        b ^= 0xFF; // Flip all bits
+        b = static_cast<char>(static_cast<unsigned char>(b) ^ 0xFFU); // Flip all bits
         stream.seekp(105);
         stream.write(&b, 1);
     }
@@ -176,7 +177,7 @@ TEST_F(VaultIntegrationTest, RejectTamperedHeader) {
         char byte = 0;
         stream.read(&byte, 1);
         ASSERT_TRUE(stream.good());
-        byte ^= static_cast<char>(0x01);
+        byte = static_cast<char>(static_cast<unsigned char>(byte) ^ 0x01U);
         stream.seekp(24);
         stream.write(&byte, 1);
         ASSERT_TRUE(stream.good());

@@ -4,14 +4,23 @@ KernelVault is demonstrated from a Linux terminal. The prototype is the C++ CLI 
 
 ## Prepare before the meeting
 
-Use a disposable Linux VM with kernel headers matching its running kernel. From the repository root:
+For a driver-backed demonstration, use a disposable Linux VM with kernel headers matching its running kernel. The CLI can also be built and demonstrated in Ubuntu on WSL2, but WSL may not support building or loading this out-of-tree driver. Clone under the VM's or WSL's Linux home directory; in WSL do not put the checkout under `/mnt/c` because CMake may fail while generating files.
+
+Install the common user-space dependencies and build/test the CLI from the repository root:
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential cmake libgtest-dev linux-headers-$(uname -r) kmod
+sudo apt install -y git build-essential cmake libgtest-dev
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
+./build/kvault --help
+```
+
+For the driver-backed VM only, also install matching headers and `kmod`, then build/load the module:
+
+```bash
+sudo apt install -y linux-headers-$(uname -r) kmod
 make -C driver
 sudo insmod driver/kvault.ko
 ls -l /dev/kvault

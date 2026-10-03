@@ -1,26 +1,31 @@
 # Linux Prototype Runbook
 
-This guide builds and exercises the KernelVault C++ CLI and Linux character driver on a disposable Linux machine or virtual machine.
+This guide builds and exercises the KernelVault C++ CLI and, optionally, the Linux character driver on a Linux machine or virtual machine. The CLI also runs on Ubuntu under WSL2; driver loading and testing should use a suitable Linux VM or machine.
 
 For a timed presentation to a recruiter or trainer, follow [`RECRUITER_DEMO.md`](RECRUITER_DEMO.md). The prototype is terminal-operated; no GUI is required.
 
 ## 1. Install build dependencies
 
-On Debian or Ubuntu:
+On Debian or Ubuntu, install the CLI and test dependencies:
 
 ```bash
 sudo apt update
-sudo apt install build-essential cmake libgtest-dev linux-headers-$(uname -r) kmod
+sudo apt install -y git build-essential cmake libgtest-dev
 ```
 
-The CMake test configuration can fetch GoogleTest if it is not installed and network access is available.
+If starting from a fresh clone, clone it into a Linux filesystem directory. In WSL, use `$HOME` (for example, `~/KernelVault`) rather than `/mnt/c`; Windows-mounted paths may prevent CMake from creating generated files. CMake can fetch GoogleTest if the system package cannot be found, which requires network access.
+
+```bash
+git clone https://github.com/XYZ-coderr/KernelVault.git "$HOME/KernelVault"
+cd "$HOME/KernelVault"
+```
 
 ## 2. Build the CLI and tests
 
 Run commands from the repository root:
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
@@ -30,8 +35,10 @@ The executable is `build/kvault`.
 ## 3. Create test input and vault
 
 ```bash
-printf 'KernelVault evaluation sample\n' > sample.txt
-./build/kvault init --vault /tmp/kvault-demo
+set -eu
+DEMO_DIR="$(mktemp -d /tmp/kvault-demo.XXXXXX)"
+printf 'KernelVault evaluation sample\n' > "$DEMO_DIR/sample.txt"
+./build/kvault init --vault "$DEMO_DIR/vault"
 ```
 
 ## 4. Encrypt and decrypt
@@ -39,16 +46,18 @@ printf 'KernelVault evaluation sample\n' > sample.txt
 Use a demonstration-only passphrase. The current CLI receives it through `--key`, which can expose it in shell history or process listings.
 
 ```bash
-./build/kvault encrypt --in sample.txt --vault /tmp/kvault-demo --key 'demo-only-passphrase'
-./build/kvault decrypt --file sample.txt --vault /tmp/kvault-demo --out restored.txt --key 'demo-only-passphrase'
-cmp sample.txt restored.txt
+./build/kvault encrypt --in "$DEMO_DIR/sample.txt" --vault "$DEMO_DIR/vault" --key 'demo-only-passphrase'
+./build/kvault decrypt --file sample.txt --vault "$DEMO_DIR/vault" --out "$DEMO_DIR/restored.txt" --key 'demo-only-passphrase'
+cmp "$DEMO_DIR/sample.txt" "$DEMO_DIR/restored.txt"
+echo 'Round trip verified: the restored file matches the source.'
 ```
 
-A successful `cmp` exits with status 0 and produces no output. The record is stored at `/tmp/kvault-demo/records/sample.txt.enc`.
+A successful `cmp` exits with status 0 and produces no output. With `set -e` enabled above, a mismatch stops the workflow before the success message. Decryption reports the original byte count; confirm the round trip with `cmp` as well. The record is stored at `$DEMO_DIR/vault/records/sample.txt.enc`.
 
 ## 5. Build and load the Linux driver (optional)
 
 ```bash
+sudo apt install -y kmod linux-headers-$(uname -r)
 make -C driver
 sudo insmod driver/kvault.ko
 ls -l /dev/kvault
@@ -72,13 +81,17 @@ sudo rmmod kvault
 ## 7. Clean up
 
 ```bash
-rm -rf /tmp/kvault-demo sample.txt restored.txt build
+rm -rf -- "$DEMO_DIR"
 ```
 
-Only run the cleanup command after checking that those paths contain disposable evaluation data.
+This removes only the temporary demonstration directory created by `mktemp`. Leave the build directory intact if you want to continue using the executable.
 
 ## Troubleshooting
 
+- **`cmake` is not recognized in PowerShell:** open the Ubuntu/WSL terminal and run the Linux build commands there.
+- **CMake reports `Operation not permitted` under WSL:** clone the repository under `$HOME` and build there. If keeping the checkout under `/mnt/c`, set the build directory to a Linux path such as `$HOME/kvault-build`.
+- **Driver build or module loading fails in WSL:** use a Linux VM or machine with matching kernel headers and permission to load modules. The CLI can still run in its user-space fallback mode.
+- **`cmp` reports a difference:** confirm decryption used the same passphrase and inspect the command's exit status; `cmp` prints nothing when files match. Check that the reported recovered byte count matches the source file size.
 - **Kernel headers are missing:** install headers matching the target kernel or provide the desired Kbuild directory with `make -C driver KDIR=/path/to/kernel/build`.
 - **`insmod` fails:** inspect `sudo dmesg`; check that the module was built against the target kernel and that kernel module loading is permitted.
 - **The driver is unavailable to the CLI:** inspect `ls -l /dev/kvault` and use the host's normal group/udev policy to grant access. CLI fallback remains available.
