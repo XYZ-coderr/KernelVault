@@ -127,12 +127,6 @@
                   <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Supports any file format</div>
                 </div>
                 <div id="enc-file-name" class="enc-file-name" role="status" aria-live="polite" hidden></div>
-                <div id="enc-progress-container" class="enc-progress-container" hidden>
-                  <div id="enc-progress-ring" class="enc-progress-ring" role="progressbar" aria-label="File encryption progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="--progress-angle: 0deg;">
-                    <span id="enc-pct">0%</span>
-                  </div>
-                  <div id="enc-status" class="enc-progress-status" role="status" aria-live="polite">Preparing encryption...</div>
-                </div>
               </div>
               <input type="file" id="enc-file-input" style="display: none;">
             </div>
@@ -145,6 +139,7 @@
             <button class="btn btn-primary" id="btn-encrypt-action" style="width: 100%; justify-content: center; padding: 12px; font-size: 1rem;">
               Encrypt File
             </button>
+            <div id="enc-status-message" class="crypto-inline-status" role="status" aria-live="polite"></div>
             
             <div id="enc-result-actions" class="enc-result-actions" hidden>
               <h4>Encrypted file ready</h4>
@@ -187,16 +182,7 @@
             <button class="btn btn-secondary" id="btn-decrypt-action" style="width: 100%; justify-content: center; padding: 12px; font-size: 1rem; color: var(--text-primary); border: 1px solid var(--border-default);">
               Decrypt & Extract
             </button>
-            
-            <div id="dec-progress-container" style="margin-top: 20px; display: none;">
-              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-family: var(--font-mono); color: var(--text-secondary); margin-bottom: 8px;">
-                <span id="dec-action-text">Verifying HMAC...</span><span id="dec-pct">0%</span>
-              </div>
-              <div style="height: 6px; background: var(--border-subtle); border-radius: 99px; overflow: hidden;">
-                <div id="dec-progress-bar" style="height: 100%; width: 0%; background: var(--status-ok); transition: width 0.1s linear;"></div>
-              </div>
-              <div id="dec-status" style="margin-top: 12px; font-size: 0.8rem; font-weight: 500; text-align: center;"></div>
-            </div>
+            <div id="dec-status" class="crypto-inline-status" role="status" aria-live="polite"></div>
           </div>
         </div>
       </div>
@@ -227,6 +213,17 @@
 
 </div>
 </main>
+
+  <div id="crypto-progress-overlay" class="crypto-progress-overlay" aria-hidden="true" hidden>
+    <div class="crypto-progress-backdrop"></div>
+    <section class="crypto-progress-dialog" role="dialog" aria-modal="true" aria-labelledby="crypto-progress-title" aria-describedby="crypto-progress-status">
+      <h2 id="crypto-progress-title">Processing file</h2>
+      <div id="crypto-progress-ring" class="crypto-progress-ring" role="progressbar" aria-label="File operation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="--progress-angle: 0deg;">
+        <span id="crypto-progress-percent">0%</span>
+      </div>
+      <p id="crypto-progress-status" role="status" aria-live="polite">Preparing...</p>
+    </section>
+  </div>
 
   <!-- Technical Footer -->
   <footer class="app-footer">

@@ -858,13 +858,48 @@ code {
 .enc-download-button { width: 100%; justify-content: center; margin-top: 12px; }
 .enc-result-message { min-height: 1.4em; margin-top: 10px; color: var(--text-secondary); font-size: 0.82rem; }
 .file-drop-zone { min-height: 188px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.file-drop-zone.is-processing { cursor: wait; pointer-events: none; }
 .enc-file-name { color: var(--status-ok); font-size: 0.9rem; font-weight: 600; line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
-.enc-progress-container { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.enc-progress-container[hidden], .enc-file-name[hidden] { display: none; }
-.enc-progress-ring {
+.enc-file-name[hidden] { display: none; }
+.crypto-inline-status { min-height: 1.3em; margin-top: 10px; color: var(--text-secondary); font-size: 0.82rem; line-height: 1.45; }
+body.crypto-progress-open { overflow: hidden; }
+.crypto-progress-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.crypto-progress-overlay[hidden] { display: none; }
+.crypto-progress-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 10, 18, 0.48);
+  -webkit-backdrop-filter: blur(9px) saturate(0.78);
+  backdrop-filter: blur(9px) saturate(0.78);
+}
+body.theme-light .crypto-progress-backdrop { background: rgba(31, 41, 55, 0.28); }
+.crypto-progress-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 30px 26px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.36);
+  text-align: center;
+  animation: crypto-progress-enter 180ms ease-out both;
+}
+.crypto-progress-dialog h2 { margin: 0; color: var(--text-primary); font-size: 1.1rem; }
+.crypto-progress-dialog p { min-height: 1.4em; margin: 0; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; }
+.crypto-progress-ring {
   --progress-angle: 0deg;
-  width: 116px;
+  width: 148px;
   aspect-ratio: 1;
   display: grid;
   place-items: center;
@@ -872,23 +907,30 @@ code {
   border-radius: 50%;
   background: conic-gradient(var(--accent-primary) var(--progress-angle), var(--border-subtle) 0deg);
   transition: background 0.12s linear;
+  filter: drop-shadow(0 8px 24px rgba(59, 130, 246, 0.15));
 }
-.enc-progress-ring::before {
+.crypto-progress-ring::before {
   content: "";
   position: absolute;
-  inset: 8px;
+  inset: 10px;
   border-radius: 50%;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
 }
-.enc-progress-ring span { position: relative; z-index: 1; color: var(--text-primary); font-family: var(--font-mono); font-size: 1.15rem; font-weight: 700; }
-.enc-progress-status { max-width: 100%; color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; overflow-wrap: anywhere; }
+.crypto-progress-ring span { position: relative; z-index: 1; color: var(--text-primary); font-family: var(--font-mono); font-size: 1.4rem; font-weight: 700; }
+@keyframes crypto-progress-enter { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .enc-import-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 .enc-import-row .enc-demo-note { margin: 0; flex: 1 1 220px; }
 
 @media (max-width: 560px) {
   .enc-result-name-row { flex-direction: column; align-items: stretch; }
   .enc-import-row { align-items: flex-start; }
+  .crypto-progress-dialog { padding: 26px 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crypto-progress-dialog { animation: none; }
+  .crypto-progress-ring { transition: none; }
 }
 
 /* Table */
