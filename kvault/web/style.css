@@ -857,6 +857,32 @@ code {
 .enc-result-name-row .btn { flex-shrink: 0; }
 .enc-download-button { width: 100%; justify-content: center; margin-top: 12px; }
 .enc-result-message { min-height: 1.4em; margin-top: 10px; color: var(--text-secondary); font-size: 0.82rem; }
+.file-drop-zone { min-height: 188px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.file-drop-zone.is-processing { cursor: wait; pointer-events: none; }
+.enc-file-name { color: var(--status-ok); font-size: 0.9rem; font-weight: 600; line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
+.enc-progress-container { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.enc-progress-container[hidden], .enc-file-name[hidden] { display: none; }
+.enc-progress-ring {
+  --progress-angle: 0deg;
+  width: 116px;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  position: relative;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent-primary) var(--progress-angle), var(--border-subtle) 0deg);
+  transition: background 0.12s linear;
+}
+.enc-progress-ring::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+}
+.enc-progress-ring span { position: relative; z-index: 1; color: var(--text-primary); font-family: var(--font-mono); font-size: 1.15rem; font-weight: 700; }
+.enc-progress-status { max-width: 100%; color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; overflow-wrap: anywhere; }
 .enc-import-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 .enc-import-row .enc-demo-note { margin: 0; flex: 1 1 220px; }
 

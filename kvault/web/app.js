@@ -965,6 +965,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initVaultOperations() {
   const encDropZone = $('enc-drop-zone');
+  const encDropPrompt = $('enc-drop-prompt');
   const encFileInput = $('enc-file-input');
   const encFileName = $('enc-file-name');
   const btnEncrypt = $('btn-encrypt-action');
@@ -1084,7 +1085,11 @@ function initVaultOperations() {
       encFileName.textContent = `File uploaded successfully and ready for encryption: ${file.name} (${formatBytes(file.size)})`;
       encFileName.dataset.filename = file.name;
       encFileName.dataset.filesize = file.size;
-      encFileName.style.display = 'block';
+      encFileName.hidden = false;
+      encDropPrompt.hidden = true;
+      $('enc-progress-container').hidden = true;
+      resultActions.hidden = true;
+      currentEncryptedRecord = null;
       encDropZone.style.borderColor = 'var(--accent-primary)';
       encDropZone.style.background = 'var(--bg-surface-elev)';
     };
@@ -1136,26 +1141,39 @@ function initVaultOperations() {
       if (!window.crypto?.subtle) {
         $('enc-status').textContent = 'This browser does not provide Web Crypto. Open the page in a modern browser or over HTTPS.';
         $('enc-status').style.color = 'var(--status-err)';
-        $('enc-progress-container').style.display = 'block';
+        $('enc-progress-container').hidden = false;
+        encDropPrompt.hidden = true;
+        encFileName.hidden = true;
         return;
       }
 
-      $('enc-progress-container').style.display = 'block';
+      const progressContainer = $('enc-progress-container');
+      const progressRing = $('enc-progress-ring');
+      progressContainer.hidden = false;
+      encDropPrompt.hidden = true;
+      encFileName.hidden = true;
+      encDropZone.classList.add('is-processing');
       const pct = $('enc-pct');
-      const bar = $('enc-progress-bar');
       const status = $('enc-status');
-      const setProgress = (value, message) => {
-        bar.style.width = `${value}%`;
+      let progressValue = 0;
+      const setProgress = value => {
+        progressValue = value;
+        progressRing.style.setProperty('--progress-angle', `${value * 3.6}deg`);
         pct.textContent = `${value}%`;
-        status.textContent = message;
-        status.style.color = 'var(--text-secondary)';
+        progressRing.setAttribute('aria-valuenow', String(value));
       };
 
       btnEncrypt.disabled = true;
       currentEncryptedRecord = null;
       resultActions.hidden = true;
+      status.textContent = 'Preparing encryption...';
+      status.style.color = 'var(--text-secondary)';
+      setProgress(0);
+      const progressTimer = window.setInterval(() => {
+        if (progressValue < 95) setProgress(Math.min(progressValue + 3, 95));
+      }, 40);
       try {
-        setProgress(10, 'Generating a random salt and initialization vector...');
+        status.textContent = 'Generating a random salt and initialization vector...';
         const salt = window.crypto.getRandomValues(new Uint8Array(16));
         const iv = window.crypto.getRandomValues(new Uint8Array(12));
         const filenameBytes = new TextEncoder().encode(sourceFile.name);
@@ -1170,15 +1188,17 @@ function initVaultOperations() {
         headerView.setUint16(40, filenameBytes.length, false);
         header.set(filenameBytes, 42);
 
-        setProgress(25, 'Deriving an AES-256 key from your passphrase...');
+        status.textContent = 'Deriving an AES-256 key from your passphrase...';
         const key = await deriveBrowserKey(pass, salt, ['encrypt'], recordIterations);
-        setProgress(50, 'Encrypting the selected file in your browser...');
+        status.textContent = 'Encrypting the selected file in your browser...';
         const plaintext = await sourceFile.arrayBuffer();
         const ciphertext = await window.crypto.subtle.encrypt(
           { name: 'AES-GCM', iv, additionalData: header, tagLength: 128 },
           key,
           plaintext
         );
+
+        while (progressValue < 95) await sleep(30);
 
         currentEncryptedRecord = new Uint8Array(header.length + ciphertext.byteLength);
         currentEncryptedRecord.set(header, 0);
@@ -1188,14 +1208,14 @@ function initVaultOperations() {
         resultMessage.textContent = 'Encryption finished. Choose a filename and download your protected file.';
         status.textContent = 'File encrypted and authenticated. Your protected file is ready to download.';
         status.style.color = 'var(--status-ok)';
-        bar.style.width = '100%';
-        pct.textContent = '100%';
+        setProgress(100);
         $('enc-password').value = '';
       } catch (error) {
         status.textContent = error.message || 'Encryption failed in this browser.';
         status.style.color = 'var(--status-err)';
-        bar.style.background = 'var(--status-err)';
       } finally {
+        window.clearInterval(progressTimer);
+        encDropZone.classList.remove('is-processing');
         btnEncrypt.disabled = false;
       }
     });

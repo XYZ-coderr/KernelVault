@@ -120,13 +120,21 @@
             
             <div class="form-group">
               <label class="form-label">Select File to Encrypt</label>
-              <div class="file-drop-zone" id="enc-drop-zone" style="border: 2px dashed var(--border-default); border-radius: var(--radius-md); padding: 32px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg-surface);">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted); margin-bottom: 12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <div style="font-size: 0.9rem; color: var(--text-secondary); font-weight: 500;">Click or drag file here</div>
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Supports any file format</div>
+              <div class="file-drop-zone" id="enc-drop-zone" style="border: 2px dashed var(--border-default); border-radius: var(--radius-md); padding: 24px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg-surface);">
+                <div id="enc-drop-prompt">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-muted); margin-bottom: 12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <div style="font-size: 0.9rem; color: var(--text-secondary); font-weight: 500;">Click or drag file here</div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Supports any file format</div>
+                </div>
+                <div id="enc-file-name" class="enc-file-name" role="status" aria-live="polite" hidden></div>
+                <div id="enc-progress-container" class="enc-progress-container" hidden>
+                  <div id="enc-progress-ring" class="enc-progress-ring" role="progressbar" aria-label="File encryption progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="--progress-angle: 0deg;">
+                    <span id="enc-pct">0%</span>
+                  </div>
+                  <div id="enc-status" class="enc-progress-status" role="status" aria-live="polite">Preparing encryption...</div>
+                </div>
               </div>
               <input type="file" id="enc-file-input" style="display: none;">
-              <div id="enc-file-name" role="status" aria-live="polite" style="margin-top: 8px; font-size: 0.85rem; color: var(--status-ok); font-weight: 600; text-align: center; display: none;"></div>
             </div>
             
             <div class="form-group">
@@ -138,16 +146,6 @@
               Encrypt File
             </button>
             
-            <div id="enc-progress-container" style="margin-top: 20px; display: none;">
-              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; font-family: var(--font-mono); color: var(--text-secondary); margin-bottom: 8px;">
-                <span>Encrypting...</span><span id="enc-pct">0%</span>
-              </div>
-              <div style="height: 6px; background: var(--border-subtle); border-radius: 99px; overflow: hidden;">
-                <div id="enc-progress-bar" style="height: 100%; width: 0%; background: var(--accent-primary); transition: width 0.1s linear;"></div>
-              </div>
-              <div id="enc-status" style="margin-top: 12px; font-size: 0.8rem; color: var(--status-ok); font-weight: 500; text-align: center;"></div>
-            </div>
-
             <div id="enc-result-actions" class="enc-result-actions" hidden>
               <h4>Encrypted file ready</h4>
               <p class="enc-demo-note">This browser demo encrypts the selected file locally with AES-256-GCM. Downloaded .kvlt files use a browser-demo format and are not compatible with the CLI vault.</p>
