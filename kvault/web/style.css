@@ -857,9 +857,12 @@ code {
 .enc-result-name-row .btn { flex-shrink: 0; }
 .enc-download-button { width: 100%; justify-content: center; margin-top: 12px; }
 .enc-result-message { min-height: 1.4em; margin-top: 10px; color: var(--text-secondary); font-size: 0.82rem; }
+.enc-import-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.enc-import-row .enc-demo-note { margin: 0; flex: 1 1 220px; }
 
 @media (max-width: 560px) {
   .enc-result-name-row { flex-direction: column; align-items: stretch; }
+  .enc-import-row { align-items: flex-start; }
 }
 
 /* Table */

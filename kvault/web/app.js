@@ -971,7 +971,66 @@ function initVaultOperations() {
   const resultActions = $('enc-result-actions');
   const outputNameInput = $('enc-output-name');
   const resultMessage = $('enc-result-message');
-  let demoRecordBlob = null;
+  const importedFileInput = $('dec-file-import');
+  const savedRecords = new Map();
+  const recordMagic = new TextEncoder().encode('KVWEB001');
+  const recordIterations = 310000;
+  let currentEncryptedRecord = null;
+
+  const deriveBrowserKey = async (passphrase, salt, usages, iterations) => {
+    const passphraseKey = await window.crypto.subtle.importKey(
+      'raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']
+    );
+    return window.crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+      passphraseKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      usages
+    );
+  };
+
+  const addRecordToSelector = (filename, source) => {
+    const selectBox = $('dec-file-select');
+    if (!selectBox) return;
+    let option = Array.from(selectBox.options).find(item => item.value === filename);
+    if (!option) {
+      option = document.createElement('option');
+      option.value = filename;
+      selectBox.appendChild(option);
+    }
+    option.textContent = `${filename} (${source})`;
+    option.selected = true;
+  };
+
+  const parseAndDecryptRecord = async (recordBytes, passphrase) => {
+    const bytes = recordBytes instanceof Uint8Array ? recordBytes : new Uint8Array(recordBytes);
+    const fixedHeaderLength = 42;
+    if (bytes.length < fixedHeaderLength + 16 ||
+        !recordMagic.every((value, index) => bytes[index] === value)) {
+      throw new Error('This is not a valid KernelVault browser-demo .kvlt file.');
+    }
+
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const iterations = view.getUint32(36, false);
+    const nameLength = view.getUint16(40, false);
+    const headerLength = fixedHeaderLength + nameLength;
+    if (!nameLength || headerLength + 16 > bytes.length || iterations < 100000 || iterations > 1000000) {
+      throw new Error('The encrypted file header is invalid or unsupported.');
+    }
+
+    const header = bytes.slice(0, headerLength);
+    const salt = bytes.slice(8, 24);
+    const iv = bytes.slice(24, 36);
+    const originalFilename = new TextDecoder().decode(bytes.slice(fixedHeaderLength, headerLength));
+    const key = await deriveBrowserKey(passphrase, salt, ['decrypt'], iterations);
+    const plaintext = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv, additionalData: header, tagLength: 128 },
+      key,
+      bytes.slice(headerLength)
+    );
+    return { plaintext, originalFilename };
+  };
 
   const getOutputFilename = () => {
     const rawName = (outputNameInput?.value || '').trim();
@@ -979,6 +1038,42 @@ function initVaultOperations() {
     if (!safeName) return '';
     return safeName.toLowerCase().endsWith('.kvlt') ? safeName : `${safeName}.kvlt`;
   };
+
+  const downloadBytes = (bytes, filename) => {
+    const blob = new Blob([bytes], { type: 'application/octet-stream' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+  };
+
+  if (importedFileInput) {
+    importedFileInput.addEventListener('change', async event => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        if (bytes.length < 8 || !recordMagic.every((value, index) => bytes[index] === value)) {
+          throw new Error('This file is not a KernelVault browser-demo .kvlt record.');
+        }
+        savedRecords.set(file.name, bytes);
+        addRecordToSelector(file.name, 'imported');
+        $('dec-status').textContent = `Imported ${file.name}. Enter the password used to encrypt it.`;
+        $('dec-status').style.color = 'var(--status-ok)';
+        $('dec-progress-container').style.display = 'block';
+      } catch (error) {
+        $('dec-status').textContent = error.message || 'Could not read this encrypted file.';
+        $('dec-status').style.color = 'var(--status-err)';
+        $('dec-progress-container').style.display = 'block';
+      } finally {
+        event.target.value = '';
+      }
+    });
+  }
   
   if (encDropZone && encFileInput) {
     // Click to select
@@ -1031,53 +1126,78 @@ function initVaultOperations() {
   
   if (btnEncrypt) {
     btnEncrypt.addEventListener('click', async () => {
+      const sourceFile = encFileInput.files[0];
       const pass = $('enc-password').value;
-      if (!pass || (!encFileInput.files.length && !encFileName.textContent.includes('Selected'))) {
+      if (!sourceFile || !pass) {
         alert('Please select a file and enter a master password.');
         return;
       }
-      
+
+      if (!window.crypto?.subtle) {
+        $('enc-status').textContent = 'This browser does not provide Web Crypto. Open the page in a modern browser or over HTTPS.';
+        $('enc-status').style.color = 'var(--status-err)';
+        $('enc-progress-container').style.display = 'block';
+        return;
+      }
+
       $('enc-progress-container').style.display = 'block';
       const pct = $('enc-pct');
       const bar = $('enc-progress-bar');
       const status = $('enc-status');
-      
-      status.textContent = 'Simulating key derivation...';
-      status.style.color = 'var(--text-secondary)';
-      bar.style.width = '10%'; pct.textContent = '10%';
-      await sleep(800);
-      
-      status.textContent = 'Simulating secure session setup...';
-      bar.style.width = '30%'; pct.textContent = '30%';
-      await sleep(500);
-      
-      status.textContent = 'Simulating file encryption...';
-      for(let i = 30; i <= 90; i+=10) {
-        bar.style.width = i + '%'; pct.textContent = i + '%';
-        await sleep(200);
+      const setProgress = (value, message) => {
+        bar.style.width = `${value}%`;
+        pct.textContent = `${value}%`;
+        status.textContent = message;
+        status.style.color = 'var(--text-secondary)';
+      };
+
+      btnEncrypt.disabled = true;
+      currentEncryptedRecord = null;
+      resultActions.hidden = true;
+      try {
+        setProgress(10, 'Generating a random salt and initialization vector...');
+        const salt = window.crypto.getRandomValues(new Uint8Array(16));
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const filenameBytes = new TextEncoder().encode(sourceFile.name);
+        if (filenameBytes.length > 65535) throw new Error('The source filename is too long.');
+
+        const header = new Uint8Array(42 + filenameBytes.length);
+        header.set(recordMagic, 0);
+        header.set(salt, 8);
+        header.set(iv, 24);
+        const headerView = new DataView(header.buffer);
+        headerView.setUint32(36, recordIterations, false);
+        headerView.setUint16(40, filenameBytes.length, false);
+        header.set(filenameBytes, 42);
+
+        setProgress(25, 'Deriving an AES-256 key from your passphrase...');
+        const key = await deriveBrowserKey(pass, salt, ['encrypt'], recordIterations);
+        setProgress(50, 'Encrypting the selected file in your browser...');
+        const plaintext = await sourceFile.arrayBuffer();
+        const ciphertext = await window.crypto.subtle.encrypt(
+          { name: 'AES-GCM', iv, additionalData: header, tagLength: 128 },
+          key,
+          plaintext
+        );
+
+        currentEncryptedRecord = new Uint8Array(header.length + ciphertext.byteLength);
+        currentEncryptedRecord.set(header, 0);
+        currentEncryptedRecord.set(new Uint8Array(ciphertext), header.length);
+        outputNameInput.value = `${sourceFile.name}.kvlt`;
+        resultActions.hidden = false;
+        resultMessage.textContent = 'Encryption finished. Choose a filename, then save this record in the session or download it.';
+        status.textContent = 'File encrypted and authenticated. Choose a save or download option below.';
+        status.style.color = 'var(--status-ok)';
+        bar.style.width = '100%';
+        pct.textContent = '100%';
+        $('enc-password').value = '';
+      } catch (error) {
+        status.textContent = error.message || 'Encryption failed in this browser.';
+        status.style.color = 'var(--status-err)';
+        bar.style.background = 'var(--status-err)';
+      } finally {
+        btnEncrypt.disabled = false;
       }
-      
-      status.textContent = 'Preparing the demo result...';
-      bar.style.width = '100%'; pct.textContent = '100%';
-      await sleep(600);
-      
-      status.textContent = 'Encryption simulation complete. Choose how to handle the demo result below.';
-      status.style.color = 'var(--status-ok)';
-
-      // Prepare a clearly labeled placeholder artifact for the browser demo.
-      const originalName = encFileName.dataset.filename || 'document.txt';
-      const originalSize = encFileName.dataset.filesize || 1024;
-
-      outputNameInput.value = `${originalName}.kvlt`;
-      demoRecordBlob = new Blob([
-        'KernelVault browser demo record\n',
-        `Source filename: ${originalName}\n`,
-        `Source size: ${originalSize} bytes\n`,
-        'This placeholder is not encrypted file data. The web page simulates the encryption workflow only.\n'
-      ], { type: 'text/plain' });
-      resultActions.hidden = false;
-      resultMessage.textContent = 'Choose a name, then save the demo record to the list or download it.';
-      $('enc-password').value = '';
     });
   }
 
@@ -1090,19 +1210,13 @@ function initVaultOperations() {
         outputNameInput.focus();
         return;
       }
-
-      const selectBox = $('dec-file-select');
-      if (selectBox) {
-        let option = Array.from(selectBox.options).find(item => item.value === filename);
-        if (!option) {
-          option = document.createElement('option');
-          option.value = filename;
-          selectBox.appendChild(option);
-        }
-        option.text = `${filename} (demo record) [NEW]`;
-        option.selected = true;
+      if (!currentEncryptedRecord) {
+        resultMessage.textContent = 'Encrypt a file first to prepare a protected record.';
+        return;
       }
 
+      savedRecords.set(filename, currentEncryptedRecord.slice());
+      addRecordToSelector(filename, 'saved in this session');
       resultMessage.textContent = `Saved ${filename} to the demo vault list for this page session.`;
     });
   }
@@ -1116,8 +1230,8 @@ function initVaultOperations() {
         outputNameInput.focus();
         return;
       }
-      if (!demoRecordBlob) {
-        resultMessage.textContent = 'Encrypt a file first to prepare a demo record.';
+      if (!currentEncryptedRecord) {
+        resultMessage.textContent = 'Encrypt a file first to prepare a protected record.';
         return;
       }
 
@@ -1126,14 +1240,7 @@ function initVaultOperations() {
         return;
       }
 
-      const url = window.URL.createObjectURL(demoRecordBlob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = filename;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.URL.revokeObjectURL(url);
+      downloadBytes(currentEncryptedRecord, filename);
       resultMessage.textContent = `Download started for ${filename}.`;
     });
   }
@@ -1143,69 +1250,58 @@ function initVaultOperations() {
     btnDecrypt.addEventListener('click', async () => {
       const fileSelect = $('dec-file-select');
       const pass = $('dec-password').value;
-      if (!pass || fileSelect.value === '') {
+      const recordBytes = savedRecords.get(fileSelect.value);
+      if (!pass || !fileSelect.value || !recordBytes) {
         alert('Please select an encrypted file and enter your password.');
         return;
       }
-      
+
+      if (!window.crypto?.subtle) {
+        $('dec-status').textContent = 'This browser does not provide Web Crypto. Open the page in a modern browser or over HTTPS.';
+        $('dec-status').style.color = 'var(--status-err)';
+        $('dec-progress-container').style.display = 'block';
+        return;
+      }
+
+      btnDecrypt.disabled = true;
       $('dec-progress-container').style.display = 'block';
       const pct = $('dec-pct');
       const bar = $('dec-progress-bar');
       const status = $('dec-status');
       const actionText = $('dec-action-text');
       
-      status.textContent = 'Loading binary header...';
+      status.textContent = 'Reading encrypted record header...';
       status.style.color = 'var(--text-secondary)';
       bar.style.background = 'var(--accent-primary)';
       bar.style.width = '20%'; pct.textContent = '20%';
-      await sleep(600);
-      
-      actionText.textContent = 'Authenticating HMAC-SHA256...';
-      status.textContent = 'Constant-time verification running...';
-      bar.style.width = '50%'; pct.textContent = '50%';
-      await sleep(800);
-      
-      if (pass !== 'MasterKey2026' && pass !== 'MasterSecret#2026') {
-         if (pass.toLowerCase() === 'wrong') {
-             bar.style.background = 'var(--status-err)';
-             status.textContent = 'ERROR: HMAC-SHA256 Signature Mismatch! Tampering detected or wrong password.';
-             status.style.color = 'var(--status-err)';
-             return;
-         }
-      }
-      
-      actionText.textContent = 'Decrypting...';
-      status.textContent = 'Decrypting chunks via Kernel Crypto API...';
-      for(let i = 50; i <= 90; i+=10) {
-        bar.style.width = i + '%'; pct.textContent = i + '%';
-        await sleep(150);
-      }
-      
-      bar.style.width = '100%'; pct.textContent = '100%';
-      status.textContent = 'Successfully decrypted and extracted!';
-      status.style.color = 'var(--status-ok)';
-      bar.style.background = 'var(--status-ok)';
-      
-      // Simulate original file extraction download
-      let origName = fileSelect.value.replace('.kvlt', '');
-      const blob = new Blob(["Simulated decrypted data..."], {type: "application/octet-stream"});
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = origName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      actionText.textContent = 'Deriving decryption key...';
+      try {
+        await sleep(50);
+        bar.style.width = '45%'; pct.textContent = '45%';
+        status.textContent = 'Authenticating and decrypting the file in your browser...';
+        const { plaintext, originalFilename } = await parseAndDecryptRecord(recordBytes, pass);
+        bar.style.width = '100%'; pct.textContent = '100%';
+        status.textContent = 'Authentication passed. The original file is ready.';
+        status.style.color = 'var(--status-ok)';
+        bar.style.background = 'var(--status-ok)';
 
-      setTimeout(() => {
+        const safeOriginalName = originalFilename.split(/[\\/]/).pop().replace(/[<>:"|?*]/g, '-') || 'decrypted-file';
+        if (window.confirm(`Save the decrypted file "${safeOriginalName}" to your device?`)) {
+          downloadBytes(plaintext, safeOriginalName);
+          status.textContent = `Decryption succeeded. Download started for ${safeOriginalName}.`;
+        } else {
+          status.textContent = 'Decryption succeeded. The download was canceled; no file was saved.';
+        }
+      } catch (error) {
+        bar.style.background = 'var(--status-err)';
+        status.style.color = 'var(--status-err)';
+        status.textContent = error.name === 'OperationError'
+          ? 'Authentication failed. The password may be wrong or the encrypted file may be damaged.'
+          : (error.message || 'Could not decrypt this file.');
+      } finally {
         $('dec-password').value = '';
-        fileSelect.selectedIndex = 0;
-        setTimeout(() => {
-           $('dec-progress-container').style.display = 'none';
-           bar.style.width = '0%';
-        }, 3000);
-      }, 1000);
+        btnDecrypt.disabled = false;
+      }
     });
   }
 }

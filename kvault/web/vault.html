@@ -150,7 +150,7 @@
 
             <div id="enc-result-actions" class="enc-result-actions" hidden>
               <h4>Choose what to do with the result</h4>
-              <p class="enc-demo-note">This web page simulates encryption. The downloadable file is a demo placeholder, not encrypted source-file data.</p>
+              <p class="enc-demo-note">This browser demo encrypts the selected file locally with AES-256-GCM. Saved records stay in this page session. Downloaded .kvlt files use a browser-demo format and are not compatible with the CLI vault.</p>
               <label class="form-label" for="enc-output-name">Name for the protected file</label>
               <div class="enc-result-name-row">
                 <input type="text" id="enc-output-name" class="form-input" autocomplete="off" placeholder="my-document.kvlt">
@@ -173,10 +173,13 @@
             <div class="form-group">
               <label class="form-label">Select Vault File (.kvlt)</label>
               <select id="dec-file-select" class="form-select">
-                <option value="" disabled selected>Select an encrypted file...</option>
-                <option value="kernel_spec.pdf.kvlt">kernel_spec.pdf.kvlt (139 KiB)</option>
-                <option value="vault_backup.tar.gz.kvlt">vault_backup.tar.gz.kvlt (547 KiB)</option>
+                <option value="" disabled selected>Select a saved or imported encrypted file...</option>
               </select>
+              <div class="enc-import-row">
+                <label class="btn btn-secondary" for="dec-file-import">Import downloaded .kvlt file</label>
+                <input type="file" id="dec-file-import" accept=".kvlt,application/octet-stream" hidden>
+                <span class="enc-demo-note">Use this to decrypt a downloaded record, including after reopening the page.</span>
+              </div>
             </div>
             
             <div class="form-group">
