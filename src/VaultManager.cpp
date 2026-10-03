@@ -749,6 +749,7 @@ bool VaultManager::decryptFile(const std::string& filename,
     }
 
     decrypted.resize(header.original_size);
+    const size_t recoveredSize = decrypted.size();
 
     // 8. Atomically write recovered file to destination
     AtomicFileWriter writer(destFile, true);
@@ -768,7 +769,7 @@ bool VaultManager::decryptFile(const std::string& filename,
     KeyDerivation::secureZero(&header, sizeof(header));
 
     Logger::info("Successfully decrypted vault record into: " + destFile.string() +
-                 " (" + std::to_string(header.original_size) + " bytes recovered)");
+                 " (" + std::to_string(recoveredSize) + " bytes recovered)");
     return true;
 }
 
