@@ -1081,7 +1081,7 @@ function initVaultOperations() {
     
     // Handle File Selection
     const handleFile = (file) => {
-      encFileName.textContent = `Selected: ${file.name} (${formatBytes(file.size)})`;
+      encFileName.textContent = `File uploaded successfully and ready for encryption: ${file.name} (${formatBytes(file.size)})`;
       encFileName.dataset.filename = file.name;
       encFileName.dataset.filesize = file.size;
       encFileName.style.display = 'block';
@@ -1185,8 +1185,8 @@ function initVaultOperations() {
         currentEncryptedRecord.set(new Uint8Array(ciphertext), header.length);
         outputNameInput.value = `${sourceFile.name}.kvlt`;
         resultActions.hidden = false;
-        resultMessage.textContent = 'Encryption finished. Choose a filename, then save this record in the session or download it.';
-        status.textContent = 'File encrypted and authenticated. Choose a save or download option below.';
+        resultMessage.textContent = 'Encryption finished. Choose a filename and download your protected file.';
+        status.textContent = 'File encrypted and authenticated. Your protected file is ready to download.';
         status.style.color = 'var(--status-ok)';
         bar.style.width = '100%';
         pct.textContent = '100%';
@@ -1198,26 +1198,6 @@ function initVaultOperations() {
       } finally {
         btnEncrypt.disabled = false;
       }
-    });
-  }
-
-  const btnSaveRecord = $('btn-save-vault-record');
-  if (btnSaveRecord) {
-    btnSaveRecord.addEventListener('click', () => {
-      const filename = getOutputFilename();
-      if (!filename) {
-        resultMessage.textContent = 'Enter a filename before saving.';
-        outputNameInput.focus();
-        return;
-      }
-      if (!currentEncryptedRecord) {
-        resultMessage.textContent = 'Encrypt a file first to prepare a protected record.';
-        return;
-      }
-
-      savedRecords.set(filename, currentEncryptedRecord.slice());
-      addRecordToSelector(filename, 'saved in this session');
-      resultMessage.textContent = `Saved ${filename} to the demo vault list for this page session.`;
     });
   }
 
