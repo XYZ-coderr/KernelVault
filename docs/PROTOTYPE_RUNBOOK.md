@@ -2,6 +2,8 @@
 
 This guide builds and exercises the KernelVault C++ CLI and Linux character driver on a disposable Linux machine or virtual machine.
 
+For a timed presentation to a recruiter or trainer, follow [`RECRUITER_DEMO.md`](RECRUITER_DEMO.md). The prototype is terminal-operated; no GUI is required.
+
 ## 1. Install build dependencies
 
 On Debian or Ubuntu:

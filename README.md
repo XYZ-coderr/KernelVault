@@ -14,7 +14,7 @@ KernelVault is a Linux capstone project that demonstrates a C++20 file-vault app
 | Software architecture | CLI, vault orchestration, key derivation, advisory locking, atomic file writer, and kernel-driver boundary are documented in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). |
 | GitHub source and instructions | C/C++ source, build configuration, tests, license, and run instructions are maintained in this repository. |
 
-There is no browser application or Python implementation in the capstone source tree. CMake, Make, Kbuild, GitHub Actions, and Markdown are build, CI, or documentation artifacts; the project implementation is C and C++.
+The prototype is operated from a Linux terminal. Its implementation is C and C++; CMake, Make/Kbuild, GitHub Actions, and Markdown are build, CI, and documentation artifacts.
 
 ## How it works
 
@@ -102,7 +102,7 @@ The encrypted record is stored at `/tmp/kvault-demo/records/example.txt.enc`.
 
 > **Passphrase handling:** The current CLI accepts passphrases through `--key`. Shell history, process listings, and audit tools may expose command-line arguments. Use demonstration data and a non-sensitive passphrase during evaluation.
 
-For the full command reference and driver workflow, see [`docs/PROTOTYPE_RUNBOOK.md`](docs/PROTOTYPE_RUNBOOK.md). The architecture and record format are described in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+For the 5–10 minute recruiter walkthrough, use [`docs/RECRUITER_DEMO.md`](docs/RECRUITER_DEMO.md). The full build and operator workflow is in [`docs/PROTOTYPE_RUNBOOK.md`](docs/PROTOTYPE_RUNBOOK.md); architecture and record format are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Record format
 

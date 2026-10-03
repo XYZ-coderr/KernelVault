@@ -19,6 +19,8 @@ The current GoogleTest targets cover:
 - `AtomicFileWriter`: commit, abort, temporary-file cleanup, overwrite, and file permissions.
 - `VaultIntegration`: initialization, encryption/decryption round trips, incorrect passphrases, and tampered records.
 
+The record-integrity checks include tampered ciphertext and tampered version 2 header data.
+
 The tests run only on Linux because they exercise POSIX descriptors, locks, and file permissions.
 
 ## Sanitizers
