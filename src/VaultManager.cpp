@@ -28,8 +28,6 @@ namespace {
 
 class SoftwareAes256 {
 public:
-    static constexpr size_t BLOCK_SIZE = 16;
-    static constexpr size_t KEY_SIZE = 32;
     static constexpr size_t ROUND_KEYS_SIZE = 240; // (14 + 1) * 16
 
     static void expandKey(std::span<const uint8_t, 32> key, uint8_t* roundKeys) noexcept {
@@ -40,12 +38,11 @@ public:
 
         std::memcpy(roundKeys, key.data(), 32);
 
-        uint32_t temp = 0;
         size_t bytesGenerated = 32;
         size_t rconIter = 1;
 
         while (bytesGenerated < ROUND_KEYS_SIZE) {
-            temp = (static_cast<uint32_t>(roundKeys[bytesGenerated - 4]) << 24) |
+            uint32_t temp = (static_cast<uint32_t>(roundKeys[bytesGenerated - 4]) << 24) |
                    (static_cast<uint32_t>(roundKeys[bytesGenerated - 3]) << 16) |
                    (static_cast<uint32_t>(roundKeys[bytesGenerated - 2]) << 8)  |
                    (static_cast<uint32_t>(roundKeys[bytesGenerated - 1]));
@@ -157,7 +154,9 @@ private:
     }
 
     static uint8_t xtime(uint8_t x) noexcept {
-        return (x << 1) ^ (((x >> 7) & 1) * 0x1b);
+        const auto value = (static_cast<unsigned int>(x) << 1) ^
+                           (((static_cast<unsigned int>(x) >> 7) & 1U) * 0x1bU);
+        return static_cast<uint8_t>(value);
     }
 
     static uint8_t multiply(uint8_t x, uint8_t y) noexcept {
@@ -345,7 +344,7 @@ void VaultManager::flushKernelSession(int devFd) {
     }
 }
 
-bool VaultManager::transformBuffer(int devFd,
+void VaultManager::transformBuffer(int devFd,
                                   std::span<const uint8_t> input,
                                   std::vector<uint8_t>& output,
                                   std::span<const uint8_t, 32> key,
@@ -353,7 +352,7 @@ bool VaultManager::transformBuffer(int devFd,
                                   bool encrypt) {
     if (input.empty()) {
         output.clear();
-        return true;
+        return;
     }
 
     if (devFd >= 0) {
@@ -366,7 +365,7 @@ bool VaultManager::transformBuffer(int devFd,
         trans.mode = encrypt ? KVAULT_MODE_ENCRYPT : KVAULT_MODE_DECRYPT;
 
         if (::ioctl(devFd, KVAULT_IOCTL_TRANSFORM, &trans) == 0) {
-            return true;
+            return;
         }
         Logger::warn("Kernel IOCTL transform failed, falling back to software cipher");
     }
@@ -406,8 +405,6 @@ bool VaultManager::transformBuffer(int devFd,
     std::memcpy(iv.data(), currentIv, 16);
     KeyDerivation::secureZero(roundKeys, sizeof(roundKeys));
     KeyDerivation::secureZero(currentIv, sizeof(currentIv));
-
-    return true;
 }
 
 std::filesystem::path VaultManager::getLockFilePath(const std::string& filename) const {
@@ -540,13 +537,7 @@ bool VaultManager::encryptFile(const std::filesystem::path& srcFile, std::string
             }
         }
 
-        if (!transformBuffer(devFd.get(), toEncrypt, encryptedChunk, key, runningIv, true)) {
-            Logger::error("Transform error during chunk encryption");
-            writer.abort();
-            if (useKernel) flushKernelSession(devFd.get());
-            KeyDerivation::secureZero(key.data(), sizeof(key));
-            return false;
-        }
+        transformBuffer(devFd.get(), toEncrypt, encryptedChunk, key, runningIv, true);
 
         if (!writer.write(encryptedChunk)) {
             Logger::error("Failed to write encrypted data to the temporary vault record");
@@ -573,14 +564,7 @@ bool VaultManager::encryptFile(const std::filesystem::path& srcFile, std::string
     std::array<uint8_t, 32> computedHmac{};
     const auto headerBytes = std::span<const uint8_t>(
         reinterpret_cast<const uint8_t*>(&header), sizeof(header));
-    if (!KeyDerivation::computeHmacSha256(key, headerBytes, fullCiphertext, computedHmac)) {
-        Logger::error("Failed to authenticate the encrypted record");
-        writer.abort();
-        if (useKernel) flushKernelSession(devFd.get());
-        KeyDerivation::secureZero(key.data(), sizeof(key));
-        KeyDerivation::secureZero(computedHmac.data(), computedHmac.size());
-        return false;
-    }
+    KeyDerivation::computeHmacSha256(key, headerBytes, fullCiphertext, computedHmac);
     std::memcpy(header.hmac, computedHmac.data(), 32);
 
     // 9. Commit Atomic Write: rewrite header and flush
@@ -733,12 +717,7 @@ bool VaultManager::decryptFile(const std::string& filename,
 
     // 6. Decrypt payload
     std::vector<uint8_t> decrypted;
-    if (!transformBuffer(devFd.get(), ciphertext, decrypted, key, iv, false)) {
-        Logger::error("Decryption failed during transform");
-        if (useKernel) flushKernelSession(devFd.get());
-        KeyDerivation::secureZero(key.data(), sizeof(key));
-        return false;
-    }
+    transformBuffer(devFd.get(), ciphertext, decrypted, key, iv, false);
 
     // 7. Remove PKCS#7 padding and validate length
     if (decrypted.size() < header.original_size) {

@@ -177,7 +177,7 @@ private:
 
     std::array<uint32_t, 8> m_state;
     uint64_t m_count;
-    std::array<uint8_t, 64> m_buffer;
+    std::array<uint8_t, 64> m_buffer{};
     size_t m_bufferLen;
 };
 
@@ -223,13 +223,13 @@ bool KeyDerivation::generateIv(std::span<uint8_t, 16> outIv) {
     return true;
 }
 
-bool KeyDerivation::computeHmacSha256(std::span<const uint8_t> key,
+void KeyDerivation::computeHmacSha256(std::span<const uint8_t> key,
                                      std::span<const uint8_t> data,
                                      std::span<uint8_t, HMAC_SIZE> outHmac) {
-    return computeHmacSha256(key, std::span<const uint8_t>{}, data, outHmac);
+    computeHmacSha256(key, std::span<const uint8_t>{}, data, outHmac);
 }
 
-bool KeyDerivation::computeHmacSha256(std::span<const uint8_t> key,
+void KeyDerivation::computeHmacSha256(std::span<const uint8_t> key,
                                      std::span<const uint8_t> first,
                                      std::span<const uint8_t> second,
                                      std::span<uint8_t, HMAC_SIZE> outHmac) {
@@ -274,8 +274,6 @@ bool KeyDerivation::computeHmacSha256(std::span<const uint8_t> key,
     secureZero(ipad.data(), sizeof(ipad));
     secureZero(opad.data(), sizeof(opad));
     secureZero(innerHash.data(), sizeof(innerHash));
-
-    return true;
 }
 
 bool KeyDerivation::verifyHmacConstantTime(std::span<const uint8_t> key,
@@ -289,9 +287,7 @@ bool KeyDerivation::verifyHmacConstantTime(std::span<const uint8_t> key,
                                           std::span<const uint8_t> second,
                                           std::span<const uint8_t, HMAC_SIZE> expectedHmac) {
     std::array<uint8_t, HMAC_SIZE> computed{};
-    if (!computeHmacSha256(key, first, second, computed)) {
-        return false;
-    }
+    computeHmacSha256(key, first, second, computed);
 
     uint8_t diff = 0;
     for (size_t i = 0; i < HMAC_SIZE; ++i) {
@@ -330,20 +326,12 @@ bool KeyDerivation::deriveKeyPbkdf2(std::string_view passphrase,
     std::array<uint8_t, 32> f_acc{};
 
     // U_1 = PRF(passphrase, salt || 1)
-    if (!computeHmacSha256(passBytes, saltPlusIndex, u_prev)) {
-        return false;
-    }
+    computeHmacSha256(passBytes, saltPlusIndex, u_prev);
     std::memcpy(f_acc.data(), u_prev.data(), 32);
 
     // Iterations 2 to c: U_j = PRF(passphrase, U_{j-1}), F = F ^ U_j
     for (uint32_t iter = 2; iter <= iterations; ++iter) {
-        if (!computeHmacSha256(passBytes, u_prev, u_curr)) {
-            secureZero(saltPlusIndex.data(), saltPlusIndex.size());
-            secureZero(u_prev.data(), sizeof(u_prev));
-            secureZero(u_curr.data(), sizeof(u_curr));
-            secureZero(f_acc.data(), sizeof(f_acc));
-            return false;
-        }
+        computeHmacSha256(passBytes, u_prev, u_curr);
 
         for (size_t b = 0; b < 32; ++b) {
             f_acc[b] ^= u_curr[b];

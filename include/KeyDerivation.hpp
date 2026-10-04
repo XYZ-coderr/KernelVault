@@ -60,16 +60,15 @@ public:
      * @param key Authentication key.
      * @param data Payload data.
      * @param outHmac Output buffer of 32 bytes for the HMAC tag.
-     * @return True on success, false otherwise.
      */
-    static bool computeHmacSha256(std::span<const uint8_t> key,
+    static void computeHmacSha256(std::span<const uint8_t> key,
                                  std::span<const uint8_t> data,
                                  std::span<uint8_t, HMAC_SIZE> outHmac);
 
     /**
      * @brief Computes HMAC-SHA256 over two concatenated spans without copying them.
      */
-    static bool computeHmacSha256(std::span<const uint8_t> key,
+    static void computeHmacSha256(std::span<const uint8_t> key,
                                  std::span<const uint8_t> first,
                                  std::span<const uint8_t> second,
                                  std::span<uint8_t, HMAC_SIZE> outHmac);

@@ -134,7 +134,7 @@ private:
     void flushKernelSession(int devFd);
 
     // Cryptographic transformation engine: uses kernel device if fd >= 0, or fallback
-    bool transformBuffer(int devFd,
+    void transformBuffer(int devFd,
                          std::span<const uint8_t> input,
                          std::vector<uint8_t>& output,
                          std::span<const uint8_t, 32> key,
